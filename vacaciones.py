@@ -571,7 +571,10 @@ def main():
             rows = []
             for gv in sorted(df[grp].dropna().unique()):
                 gd   = df[df[grp] == gv]
-                meta = gd[col_meta].fillna(0).astype(float).sum() if col_meta else 0
+                try:
+                    meta = float(gd[col_meta].apply(lambda x: float(x) if x is not None and str(x).strip() not in ['nan','None','','-'] else 0).sum()) if col_meta else 0.0
+                except Exception:
+                    meta = 0.0
                 prog = gd['Prog_visma'].fillna(0).sum() if 'Prog_visma' in gd.columns else 0
                 def _cap2(r):
                     try:
