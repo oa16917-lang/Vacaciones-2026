@@ -208,6 +208,7 @@ def construir_consolidado(df_meta, df_visma):
         # % avance capeado al 100%
         pct = round(min(prog, meta) / meta * 100, 1) if meta > 0 else 0
 
+
         # Vencidos reales desde Visma
         venc = 0
         if fl and fl < hoy and pend > 0 and leg not in ignorados:
@@ -397,10 +398,15 @@ def main():
 
         meta_t   = df[col_meta].fillna(0).astype(float).sum() if col_meta else 0
         def _cap(r):
-            if not col_meta: return 0
-            mv = r.get(col_meta)
-            m  = float(mv) if mv is not None and str(mv) not in ['nan','None',''] else 0
-            return min(float(r.get('Prog_visma',0) or 0), m)
+            try:
+                if not col_meta: return 0
+                mv = r.get(col_meta)
+                m  = float(mv) if mv is not None and str(mv).strip() not in ['nan','None','','-'] else 0
+                pv = r.get('Prog_visma', 0)
+                p  = float(pv) if pv is not None and str(pv).strip() not in ['nan','None',''] else 0
+                return min(p, m)
+            except (ValueError, TypeError):
+                return 0
         prog_cap = df.apply(_cap, axis=1).sum()
         pct      = round(prog_cap / meta_t * 100, 1) if meta_t > 0 else 0
         venc_n   = int((df['Vencidos_real'] > 0).sum()) if 'Vencidos_real' in df.columns else 0
@@ -568,10 +574,15 @@ def main():
                 meta = gd[col_meta].fillna(0).astype(float).sum() if col_meta else 0
                 prog = gd['Prog_visma'].fillna(0).sum() if 'Prog_visma' in gd.columns else 0
                 def _cap2(r):
-                    if not col_meta: return 0
-                    mv = r.get(col_meta)
-                    m  = float(mv) if mv is not None and str(mv) not in ['nan','None',''] else 0
-                    return min(float(r.get('Prog_visma',0) or 0), m)
+                    try:
+                        if not col_meta: return 0
+                        mv = r.get(col_meta)
+                        m  = float(mv) if mv is not None and str(mv).strip() not in ['nan','None','','-'] else 0
+                        pv = r.get('Prog_visma', 0)
+                        p  = float(pv) if pv is not None and str(pv).strip() not in ['nan','None',''] else 0
+                        return min(p, m)
+                    except (ValueError, TypeError):
+                        return 0
                 prog_cap = gd.apply(_cap2, axis=1).sum()
                 pct = round(prog_cap / meta * 100, 1) if meta > 0 else 0
                 rows.append({
