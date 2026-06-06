@@ -1,6 +1,5 @@
 """
 vacaciones.py — Gestión de Vacaciones Apparka
-Streamlit Community Cloud
 """
 import streamlit as st
 import pandas as pd
@@ -8,13 +7,10 @@ import json, re, calendar
 from datetime import date, datetime, timedelta
 from io import BytesIO
 
-# ── Colores Apparka ────────────────────────────────────────────────────────────
 AZUL    = "#1B1462"
 FUCSIA  = "#ED2579"
 MORADO  = "#8A34B4"
 AZUL_L  = "#E8E7F5"
-FUCSIA_L= "#FDE8F2"
-MORADO_L= "#F3E8FB"
 GRIS    = "#F5F4F1"
 BORDE   = "#E2E0D8"
 
@@ -23,24 +19,15 @@ st.set_page_config(page_title="Gestión de Vacaciones Apparka",
                    initial_sidebar_state="expanded")
 
 st.markdown(f"""<style>
-.main {{background:{GRIS}}}
-.block-container {{padding-top:1.5rem;padding-bottom:1rem}}
-section[data-testid="stSidebar"] {{background:{AZUL}}}
-section[data-testid="stSidebar"] * {{color:white!important}}
-section[data-testid="stSidebar"] .stButton button {{
-    background:{FUCSIA};color:white;border:none;border-radius:8px;width:100%}}
-section[data-testid="stSidebar"] hr {{border-color:rgba(255,255,255,0.2)}}
-div[data-testid="metric-container"] {{
-    background:white;border:1.5px solid {BORDE};border-radius:12px;padding:14px 18px}}
-div[data-testid="metric-container"] label {{color:#6b6860;font-size:12px}}
-div[data-testid="metric-container"] [data-testid="metric-value"] {{
-    color:{AZUL};font-size:28px;font-weight:700}}
-h1,h2,h3 {{color:{AZUL}}}
-.stDataFrame {{border:1px solid {BORDE};border-radius:8px}}
-.stRadio label {{color:white!important}}
-thead tr th {{background:{AZUL}!important;color:white!important}}
-.stDownloadButton button {{background:{FUCSIA};color:white;border:none;border-radius:8px}}
-.stDownloadButton button:hover {{background:{MORADO}}}
+.main{{background:{GRIS}}}
+.block-container{{padding-top:1.5rem;padding-bottom:1rem}}
+section[data-testid="stSidebar"]{{background:{AZUL}}}
+section[data-testid="stSidebar"] *{{color:white!important}}
+section[data-testid="stSidebar"] .stButton button{{background:{FUCSIA};color:white;border:none;border-radius:8px;width:100%}}
+div[data-testid="metric-container"]{{background:white;border:1.5px solid {BORDE};border-radius:12px;padding:14px 18px}}
+div[data-testid="metric-container"] [data-testid="metric-value"]{{color:{AZUL};font-size:26px;font-weight:700}}
+h1,h2,h3{{color:{AZUL}}}
+.stDownloadButton button{{background:{FUCSIA};color:white;border:none;border-radius:8px}}
 </style>""", unsafe_allow_html=True)
 
 MESES     = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO',
@@ -48,28 +35,50 @@ MESES     = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO',
 MES_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
              'Julio','Agosto','Setiembre','Octubre','Noviembre','Diciembre']
 
-# ── AUTH ───────────────────────────────────────────────────────────────────────
+# ── Helpers numéricos ──────────────────────────────────────────────────────────
+def safe_float(val, default=0.0):
+    """Convierte cualquier valor a float de forma segura"""
+    if val is None: return default
+    if isinstance(val, (int, float)):
+        import math
+        return default if math.isnan(val) else float(val)
+    try:
+        s = str(val).strip()
+        if s in ['nan','None','','-','NaN']: return default
+        return float(s)
+    except:
+        return default
+
+def col_sum(df, col):
+    """Suma segura de una columna"""
+    if col not in df.columns: return 0.0
+    return float(df[col].apply(safe_float).sum())
+
+def cap_sum(df, col_prog, col_meta):
+    """Suma de min(prog, meta) por fila — para % avance capeado"""
+    if not col_prog or not col_meta: return 0.0
+    total = 0.0
+    for _, r in df.iterrows():
+        p = safe_float(r.get(col_prog))
+        m = safe_float(r.get(col_meta))
+        total += min(p, m)
+    return total
+
+# ── Auth ───────────────────────────────────────────────────────────────────────
 def check_auth():
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
     if st.session_state.authenticated:
         return True
-
-    st.markdown(f"""
-    <div style='text-align:center;padding:40px 0 20px'>
-      <div style='font-size:36px;font-weight:800;color:{AZUL}'>Apparka</div>
-      <div style='font-size:18px;color:{MORADO};font-weight:500;margin-top:4px'>
-        Gestión de Vacaciones</div>
-    </div>""", unsafe_allow_html=True)
-
+    st.markdown(f"""<div style='text-align:center;padding:40px 0 20px'>
+      <div style='font-size:40px;font-weight:800;color:{AZUL}'>Apparka</div>
+      <div style='font-size:17px;color:{MORADO};font-weight:500;margin-top:4px'>
+        Gestión de Vacaciones</div></div>""", unsafe_allow_html=True)
     _, col, _ = st.columns([1,1.1,1])
     with col:
-        st.markdown(f"""
-        <div style='text-align:center;margin-bottom:8px'>
-          <div style='font-size:20px;color:{MORADO};font-weight:400;letter-spacing:.3px'>
-            Bienvenidos</div>
-          <div style='font-size:16px;font-weight:700;color:{AZUL};margin-top:2px'>
-            Iniciar Sesión</div>
+        st.markdown(f"""<div style='text-align:center;margin-bottom:16px'>
+          <div style='font-size:15px;color:#888;font-weight:400'>Bienvenidos</div>
+          <div style='font-size:20px;font-weight:700;color:{AZUL}'>Iniciar Sesión</div>
         </div>""", unsafe_allow_html=True)
         usr = st.text_input("Correo corporativo", placeholder="nombre@apparka.com")
         pwd = st.text_input("Contraseña", type="password")
@@ -83,29 +92,27 @@ def check_auth():
                 st.error("Usuario o contraseña incorrectos")
     return False
 
-# ── CARGA ──────────────────────────────────────────────────────────────────────
+# ── Carga ──────────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
 def cargar_meta():
     rename = {
-        'Apellidos y Nombres': 'Nombre',
-        'Area': 'AREA', 'Sede': 'SEDE',
-        'META 2025': 'Meta2026',          # columna V — meta real de días a gozar
-        'Meta SE': 'Meta2026',
-        'Programación': 'Prog_meta',
-        'Días Pendientes de programación': 'Dias_x_prog',
-        'COMENTARIO PARA EVITAR INDEMNIZACION': 'Comentario_ind',
-        'COMENTARIOS PARA CUMPLIMIENTO META 2026': 'Comentario_meta',
+        'Apellidos y Nombres':'Nombre', 'Area':'AREA', 'Sede':'SEDE',
+        'META 2025':'Meta2026', 'Meta SE':'Meta2026',
+        'Programación':'Prog_meta',
+        'Días Pendientes de programación':'Dias_x_prog',
+        'COMENTARIO PARA EVITAR INDEMNIZACION':'Comentario_ind',
+        'COMENTARIOS PARA CUMPLIMIENTO META 2026':'Comentario_meta',
     }
-    for fn, sh in [('CONSOLIDADO_GENERADO.xlsx', None),
-                   ('META_2026_-_Abril.xlsx', 'Consolidado')]:
+    for fn, sh in [('CONSOLIDADO_GENERADO.xlsx',None),
+                   ('META_2026_-_Abril.xlsx','Consolidado')]:
         try:
             df = pd.read_excel(fn, sheet_name=sh)
             if len(df):
                 df = df.rename(columns={k:v for k,v in rename.items() if k in df.columns})
                 df['Legajo'] = df['Legajo'].astype(str).str.replace('.0','',regex=False).str.strip()
-                col_area = next((c for c in ['AREA','Area'] if c in df.columns), None)
-                if col_area:
-                    df = df[df[col_area].notna() & (df[col_area].astype(str).str.strip()!='')]
+                ca = next((c for c in ['AREA','Area'] if c in df.columns), None)
+                if ca:
+                    df = df[df[ca].notna() & (df[ca].astype(str).str.strip()!='')]
                 return df
         except:
             continue
@@ -137,20 +144,22 @@ def cargar_jerarquia():
 def get_ignorados():
     return st.session_state.get('ignorados', set())
 
-def ignorar_legajo(leg):
-    ig = st.session_state.get('ignorados', set()); ig.add(str(leg))
+def ignorar(leg):
+    ig = st.session_state.get('ignorados', set())
+    ig.add(str(leg))
     st.session_state['ignorados'] = ig
 
-def restaurar_legajo(leg):
-    ig = st.session_state.get('ignorados', set()); ig.discard(str(leg))
+def restaurar(leg):
+    ig = st.session_state.get('ignorados', set())
+    ig.discard(str(leg))
     st.session_state['ignorados'] = ig
 
-# ── LÓGICA ─────────────────────────────────────────────────────────────────────
+# ── Lógica vacaciones ──────────────────────────────────────────────────────────
 def fecha_limite(comentario):
     if not comentario or str(comentario).strip() in ['-','nan','None','']: return None
     m = re.search(r'ANTES DEL (\d{2}/\d{2}/\d{4})', str(comentario).upper())
     if m:
-        try: return datetime.strptime(m.group(1), '%d/%m/%Y').date()
+        try: return datetime.strptime(m.group(1),'%d/%m/%Y').date()
         except: pass
     return None
 
@@ -160,7 +169,7 @@ def construir_consolidado(df_meta, df_visma):
 
     if not df_visma.empty:
         v2026 = df_visma[
-            (df_visma['Fecha_desde'].dt.year == 2026) &
+            (df_visma['Fecha_desde'].dt.year==2026) &
             (df_visma['Estado_aus'].isin(['Aprobada','Pendiente']))
         ].copy()
         v2026['mes'] = v2026['Fecha_desde'].dt.month
@@ -173,13 +182,13 @@ def construir_consolidado(df_meta, df_visma):
         pivot['Prog_visma'] = pivot[MESES].sum(axis=1)
         df = df_meta.merge(pivot, on='Legajo', how='left')
         for m in MESES:
-            if m not in df.columns: df[m] = 0
+            if m not in df.columns: df[m] = 0.0
             else: df[m] = df[m].fillna(0)
         df['Prog_visma'] = df['Prog_visma'].fillna(0)
     else:
         df = df_meta.copy()
         for m in MESES:
-            if m not in df.columns: df[m] = 0
+            if m not in df.columns: df[m] = 0.0
         df['Prog_visma'] = df[[m for m in MESES if m in df.columns]].sum(axis=1)
 
     col_meta = next((c for c in ['Meta2026','Meta SE','META 2025'] if c in df.columns), None)
@@ -188,28 +197,14 @@ def construir_consolidado(df_meta, df_visma):
     for _, row in df.iterrows():
         leg  = str(row['Legajo'])
         com  = str(row.get('Comentario_ind','') or '')
-        try:
-            meta_val = row.get(col_meta) if col_meta else None
-            meta = float(meta_val) if meta_val is not None and str(meta_val).strip() not in ['nan','None','','-'] else 0
-        except (ValueError, TypeError):
-            meta = 0
-        try:
-            prog_val = row.get('Prog_visma', 0)
-            prog = float(prog_val) if prog_val is not None and str(prog_val).strip() not in ['nan','None',''] else 0
-        except (ValueError, TypeError):
-            prog = 0
-        try:
-            pend_val = row.get('Pendientes', 0)
-            pend = float(pend_val) if pend_val is not None and str(pend_val).strip() not in ['nan','None',''] else 0
-        except (ValueError, TypeError):
-            pend = 0
+        meta = safe_float(row.get(col_meta) if col_meta else None)
+        prog = safe_float(row.get('Prog_visma'))
+        pend = safe_float(row.get('Pendientes'))
         fl   = fecha_limite(com)
 
-        # % avance capeado al 100%
-        pct = round(min(prog, meta) / meta * 100, 1) if meta > 0 else 0
+        pct    = round(min(prog, meta) / meta * 100, 1) if meta > 0 else 0
+        dias_r = (fl - hoy).days if fl else 999
 
-
-        # Vencidos reales desde Visma
         venc = 0
         if fl and fl < hoy and pend > 0 and leg not in ignorados:
             md = re.search(r'DEBE GOZAR (\d+)', com.upper())
@@ -217,17 +212,17 @@ def construir_consolidado(df_meta, df_visma):
             if prog < dias_debia:
                 venc = max(0, dias_debia - prog)
 
-        dias_r = (fl - hoy).days if fl else 999
-        if leg in ignorados:                          estado = 'IGNORADO'
-        elif venc > 0:                                estado = 'VENCIDO'
-        elif fl and dias_r <= 30 and pend > 0:        estado = 'CRITICO'
-        elif fl and dias_r <= 90 and pend > 0:        estado = 'EN_RIESGO'
-        elif meta > 0 and prog >= meta:               estado = 'CUMPLIDO'
-        elif meta == 0 and pend == 0:                 estado = 'SIN_SALDO'
-        else:                                         estado = 'AL_DIA'
+        if leg in ignorados:               estado = 'IGNORADO'
+        elif venc > 0:                     estado = 'VENCIDO'
+        elif fl and dias_r <= 30 and pend > 0: estado = 'CRITICO'
+        elif fl and dias_r <= 90 and pend > 0: estado = 'EN_RIESGO'
+        elif meta > 0 and prog >= meta:    estado = 'CUMPLIDO'
+        elif meta == 0 and pend == 0:      estado = 'SIN_SALDO'
+        else:                              estado = 'AL_DIA'
 
         estados.append(estado); vencidos_r.append(round(venc,1))
-        fechas_l.append(str(fl) if fl else ''); dias_rest.append(dias_r); pcts.append(pct)
+        fechas_l.append(str(fl) if fl else '')
+        dias_rest.append(dias_r); pcts.append(pct)
 
     df = df.copy()
     df['Estado']        = estados
@@ -240,7 +235,7 @@ def construir_consolidado(df_meta, df_visma):
 def filtrar_usuario(df, user_name, pa):
     if user_name not in pa: return df
     info = pa[user_name]
-    if info['role'] == 'Gerente' or not info.get('areas'): return df
+    if info['role']=='Gerente' or not info.get('areas'): return df
     col = next((c for c in ['AREA','Area'] if c in df.columns), None)
     if col: return df[df[col].isin(info['areas'])].copy()
     return df
@@ -255,99 +250,80 @@ def to_excel(df):
     with pd.ExcelWriter(buf, engine='openpyxl') as w: df.to_excel(w, index=False)
     return buf.getvalue()
 
-# ── CALENDARIO ─────────────────────────────────────────────────────────────────
+# ── Calendario ─────────────────────────────────────────────────────────────────
 def render_calendario(df_visma, df_user, mes_num, anio=2026):
     if df_visma.empty:
         st.warning("Sube el archivo de Visma para ver el calendario.")
         return
-
     legajos_ok = set(df_user['Legajo'].astype(str).unique())
     col_nom    = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df_user.columns), None)
     leg_nombre = {}
     if col_nom:
-        for _, r in df_user[['Legajo', col_nom]].drop_duplicates().iterrows():
+        for _, r in df_user[['Legajo',col_nom]].drop_duplicates().iterrows():
             leg_nombre[str(r['Legajo'])] = str(r[col_nom]).title()
 
-    mask = (
-        (df_visma['Fecha_desde'].dt.year  == anio) &
-        (df_visma['Fecha_desde'].dt.month == mes_num) &
-        (df_visma['Legajo'].isin(legajos_ok)) &
-        (df_visma['Estado_aus'].isin(['Aprobada','Pendiente']))
-    )
-    mask2 = (
-        df_visma['Fecha_hasta'].notna() &
-        (df_visma['Fecha_hasta'].dt.year  == anio) &
-        (df_visma['Fecha_hasta'].dt.month == mes_num) &
-        (df_visma['Fecha_desde'].dt.month < mes_num) &
-        (df_visma['Legajo'].isin(legajos_ok)) &
-        (df_visma['Estado_aus'].isin(['Aprobada','Pendiente']))
-    )
+    mask = ((df_visma['Fecha_desde'].dt.year==anio) &
+            (df_visma['Fecha_desde'].dt.month==mes_num) &
+            (df_visma['Legajo'].isin(legajos_ok)) &
+            (df_visma['Estado_aus'].isin(['Aprobada','Pendiente'])))
+    mask2= (df_visma['Fecha_hasta'].notna() &
+            (df_visma['Fecha_hasta'].dt.year==anio) &
+            (df_visma['Fecha_hasta'].dt.month==mes_num) &
+            (df_visma['Fecha_desde'].dt.month<mes_num) &
+            (df_visma['Legajo'].isin(legajos_ok)) &
+            (df_visma['Estado_aus'].isin(['Aprobada','Pendiente'])))
     vac_mes = pd.concat([df_visma[mask], df_visma[mask2]]).drop_duplicates()
 
-    dias_personas = {d: [] for d in range(1, 32)}
+    dias_p = {d:[] for d in range(1,32)}
     for _, r in vac_mes.iterrows():
         nombre = leg_nombre.get(str(r['Legajo']), str(r['Legajo']))
-        fd = r['Fecha_desde'].date() if hasattr(r['Fecha_desde'], 'date') else r['Fecha_desde']
-        fh = r['Fecha_hasta'].date() if pd.notna(r['Fecha_hasta']) and hasattr(r['Fecha_hasta'], 'date') else fd
+        fd = r['Fecha_desde'].date() if hasattr(r['Fecha_desde'],'date') else r['Fecha_desde']
+        fh = r['Fecha_hasta'].date() if pd.notna(r['Fecha_hasta']) and hasattr(r['Fecha_hasta'],'date') else fd
         cur = fd
         while cur <= fh:
-            if cur.year == anio and cur.month == mes_num:
-                dias_personas[cur.day].append(nombre.split()[0] if nombre else '')
+            if cur.year==anio and cur.month==mes_num:
+                dias_p[cur.day].append(nombre.split()[0] if nombre else '')
             cur += timedelta(days=1)
 
-    cal_mat    = calendar.monthcalendar(anio, mes_num)
-    dias_semana= ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
-    cols_cal   = st.columns(7)
-    for i, d in enumerate(dias_semana):
-        cols_cal[i].markdown(
-            f"<div style='text-align:center;font-weight:600;font-size:12px;"
-            f"color:{AZUL};padding:6px;background:{AZUL_L};border-radius:6px'>{d}</div>",
-            unsafe_allow_html=True)
-
-    for semana in cal_mat:
+    dias_semana = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
+    cols_h = st.columns(7)
+    for i,d in enumerate(dias_semana):
+        cols_h[i].markdown(f"<div style='text-align:center;font-weight:600;font-size:12px;"
+                            f"color:{AZUL};padding:6px;background:{AZUL_L};border-radius:6px'>{d}</div>",
+                            unsafe_allow_html=True)
+    for semana in calendar.monthcalendar(anio, mes_num):
         cols_w = st.columns(7)
-        for i, dia in enumerate(semana):
+        for i,dia in enumerate(semana):
             with cols_w[i]:
-                if dia == 0:
+                if dia==0:
                     st.markdown("<div style='min-height:70px'></div>", unsafe_allow_html=True)
                 else:
-                    personas = dias_personas.get(dia, [])
-                    finde_bg = "#f0eff8" if i >= 5 else "white"
-                    brd      = MORADO if personas else BORDE
-                    html     = (f"<div style='border:1.5px solid {brd};border-radius:8px;"
-                                f"padding:5px 7px;min-height:70px;background:{finde_bg}'>")
-                    html    += (f"<div style='font-weight:700;color:{AZUL};font-size:13px;"
-                                f"margin-bottom:3px'>{dia}</div>")
+                    personas = dias_p.get(dia,[])
+                    bg  = "#f0eff8" if i>=5 else "white"
+                    brd = MORADO if personas else BORDE
+                    html = f"<div style='border:1.5px solid {brd};border-radius:8px;padding:5px 7px;min-height:70px;background:{bg}'>"
+                    html += f"<div style='font-weight:700;color:{AZUL};font-size:13px;margin-bottom:3px'>{dia}</div>"
                     for p in personas[:3]:
-                        html += (f"<div style='background:{AZUL_L};color:{AZUL};"
-                                 f"border-radius:4px;padding:1px 5px;margin:2px 0;"
-                                 f"font-size:10px;overflow:hidden;text-overflow:ellipsis;"
-                                 f"white-space:nowrap'>{p}</div>")
-                    if len(personas) > 3:
-                        html += (f"<div style='font-size:9px;color:{MORADO};"
-                                 f"font-weight:600'>+{len(personas)-3} más</div>")
+                        html += f"<div style='background:{AZUL_L};color:{AZUL};border-radius:4px;padding:1px 5px;margin:2px 0;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'>{p}</div>"
+                    if len(personas)>3:
+                        html += f"<div style='font-size:9px;color:{MORADO};font-weight:600'>+{len(personas)-3} más</div>"
                     html += "</div>"
                     st.markdown(html, unsafe_allow_html=True)
 
-    total_p = len(set(n for ps in dias_personas.values() for n in ps))
-    st.caption(f"📊 {total_p} colaboradores con vacaciones — "
-               f"{vac_mes['Cant_dias'].sum():.0f} días totales")
-
+    total_p = len(set(n for ps in dias_p.values() for n in ps))
+    st.caption(f"📊 {total_p} colaboradores — {vac_mes['Cant_dias'].sum():.0f} días totales")
     if not vac_mes.empty:
         exp = vac_mes.copy()
         exp['Nombre'] = exp['Legajo'].map(leg_nombre)
-        exp = exp[['Legajo','Nombre','Fecha_desde','Fecha_hasta',
-                   'Cant_dias','Estado_aus','Periodo']]
+        exp = exp[['Legajo','Nombre','Fecha_desde','Fecha_hasta','Cant_dias','Estado_aus','Periodo']]
         exp.columns = ['Legajo','Nombre','Desde','Hasta','Días','Estado','Periodo']
-        with st.expander(f"📋 Lista detallada — {MES_NAMES[mes_num-1]} {anio}"):
+        with st.expander(f"📋 Lista — {MES_NAMES[mes_num-1]} {anio}"):
             st.dataframe(exp.sort_values('Desde'), use_container_width=True, hide_index=True)
-        st.download_button(
-            f"⬇️ Descargar programación {MES_NAMES[mes_num-1]}",
-            to_excel(exp),
-            file_name=f"programacion_{MES_NAMES[mes_num-1]}_{anio}.xlsx",
+        st.download_button(f"⬇️ Descargar {MES_NAMES[mes_num-1]}", to_excel(exp),
+            file_name=f"prog_{MES_NAMES[mes_num-1]}_{anio}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# ── MAIN ───────────────────────────────────────────────────────────────────────
+# ── Main ───────────────────────────────────────────────────────────────────────
 def main():
     if not check_auth(): return
 
@@ -362,7 +338,7 @@ def main():
 
     df_full = construir_consolidado(df_meta, df_visma)
     df      = filtrar_usuario(df_full, user_name, pa)
-    role    = pa.get(user_name, {}).get('role', 'RRHH')
+    role    = pa.get(user_name, {}).get('role','RRHH')
 
     col_meta = next((c for c in ['Meta2026','Meta SE','META 2025'] if c in df.columns), None)
     col_pend = 'Pendientes' if 'Pendientes' in df.columns else None
@@ -373,21 +349,17 @@ def main():
     col_jefe = 'Jefe' if 'Jefe' in df.columns else None
     col_nom  = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df.columns), None)
 
-    # Sidebar Apparka
     with st.sidebar:
         st.markdown(f"""<div style='text-align:center;padding:16px 0 8px'>
-          <div style='font-size:22px;font-weight:800;color:white;letter-spacing:1px'>Apparka</div>
-          <div style='font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px'>
-          Gestión de Vacaciones</div></div>""", unsafe_allow_html=True)
-        st.markdown(f"<hr style='border-color:rgba(255,255,255,0.2)'>", unsafe_allow_html=True)
+          <div style='font-size:22px;font-weight:800;color:white'>Apparka</div>
+          <div style='font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px'>Gestión de Vacaciones</div>
+        </div><hr style='border-color:rgba(255,255,255,0.2)'>""", unsafe_allow_html=True)
         st.markdown(f"**{user_name}**")
         st.caption(f"Rol: {role} · {len(df):,} colaboradores")
         st.markdown(f"<hr style='border-color:rgba(255,255,255,0.2)'>", unsafe_allow_html=True)
-        pagina = st.radio("", [
-            "📊 Dashboard", "👥 Colaboradores", "🔔 Alertas",
-            "📅 Calendario", "📋 Resumen gerencias",
-            "📂 Historial Visma", "⬆️ Cargar archivos",
-        ], label_visibility="collapsed")
+        pagina = st.radio("", ["📊 Dashboard","👥 Colaboradores","🔔 Alertas",
+            "📅 Calendario","📋 Resumen gerencias","📂 Historial Visma","⬆️ Cargar archivos"],
+            label_visibility="collapsed")
         st.markdown(f"<hr style='border-color:rgba(255,255,255,0.2)'>", unsafe_allow_html=True)
         if st.button("Cerrar sesión"):
             st.session_state.authenticated = False; st.rerun()
@@ -396,43 +368,30 @@ def main():
     if pagina == "📊 Dashboard":
         st.markdown("## Dashboard — Vacaciones")
 
-        meta_t   = df[col_meta].fillna(0).astype(float).sum() if col_meta else 0
-        def _cap(r):
-            try:
-                if not col_meta: return 0
-                mv = r.get(col_meta)
-                m  = float(mv) if mv is not None and str(mv).strip() not in ['nan','None','','-'] else 0
-                pv = r.get('Prog_visma', 0)
-                p  = float(pv) if pv is not None and str(pv).strip() not in ['nan','None',''] else 0
-                return min(p, m)
-            except (ValueError, TypeError):
-                return 0
-        prog_cap = df.apply(_cap, axis=1).sum()
+        meta_t   = col_sum(df, col_meta)
+        prog_cap = cap_sum(df, 'Prog_visma', col_meta)
         pct      = round(prog_cap / meta_t * 100, 1) if meta_t > 0 else 0
         venc_n   = int((df['Vencidos_real'] > 0).sum()) if 'Vencidos_real' in df.columns else 0
-        dp       = int(df[col_dp].fillna(0).astype(float).sum()) if col_dp else 0
+        dp       = int(col_sum(df, col_dp))
 
-        # KPIs — 5 tarjetas con nuevos nombres
         c1,c2,c3,c4,c5 = st.columns(5)
-        c1.metric("Meta 2026 (días)",             f"{int(meta_t):,}")
-        c2.metric("N° Colaboradores",             f"{len(df):,}")
-        c3.metric("N° Colab. con vac. vencidas",  venc_n)
-        c4.metric("% Avance meta 2026",           f"{pct}%")
-        c5.metric("Cantidad días por programar",  f"{dp:,}")
+        c1.metric("Meta 2026 (días)",            f"{int(meta_t):,}")
+        c2.metric("N° Colaboradores",            f"{len(df):,}")
+        c3.metric("N° Colab. con vac. vencidas", venc_n)
+        c4.metric("% Avance meta 2026",          f"{pct}%")
+        c5.metric("Cantidad días por programar", f"{dp:,}")
 
         st.markdown("---")
-        # Sin gráfico de barras — solo tabla de atención
         st.markdown("### Colaboradores que requieren atención")
         if 'Estado' in df.columns:
-            df_at = df[
-                df['Estado'].isin(['VENCIDO','CRITICO','EN_RIESGO']) &
-                (df[col_pend].fillna(0).astype(float) > 0 if col_pend else True)
-            ].copy()
+            cond = df['Estado'].isin(['VENCIDO','CRITICO','EN_RIESGO'])
+            if col_pend:
+                cond = cond & (df[col_pend].apply(safe_float) > 0)
+            df_at = df[cond].copy()
             if not df_at.empty:
                 df_at = df_at.sort_values('Vencidos_real', ascending=False)
-                cols_s = [c for c in [col_nom, col_area, col_jefe,
-                                       'Vencidos_real', col_pend, col_dp,
-                                       'Fecha_limite', 'Estado']
+                cols_s = [c for c in [col_nom,col_area,col_jefe,'Vencidos_real',
+                                       col_pend,col_dp,'Fecha_limite','Estado']
                           if c and c in df_at.columns]
                 show = df_at[cols_s].head(20).copy()
                 show['Estado'] = show['Estado'].apply(emo)
@@ -445,32 +404,25 @@ def main():
         st.markdown("## Colaboradores")
         c1,c2,c3,c4,c5 = st.columns(5)
         buscar = c1.text_input("🔍 Nombre o legajo")
-        f_area = c2.selectbox("Área",
-            ['Todas'] + sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
-        f_cat  = c3.selectbox("Categoría",
-            ['Todas'] + sorted(df[col_cat].dropna().unique().tolist()) if col_cat else ['Todas'])
-        f_est  = c4.selectbox("Estado",
-            ['Todos'] + sorted(df['Estado'].dropna().unique().tolist()) if 'Estado' in df.columns else ['Todos'])
-        f_jefe = c5.selectbox("Jefe",
-            ['Todos'] + sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
+        f_area = c2.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
+        f_cat  = c3.selectbox("Categoría",['Todas']+sorted(df[col_cat].dropna().unique().tolist()) if col_cat else ['Todas'])
+        f_est  = c4.selectbox("Estado",['Todos']+sorted(df['Estado'].dropna().unique().tolist()) if 'Estado' in df.columns else ['Todos'])
+        f_jefe = c5.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
 
         df_f = df.copy()
         if buscar and col_nom:
-            m = df_f[col_nom].astype(str).str.upper().str.contains(buscar.upper(), na=False)
-            if 'Legajo' in df_f.columns:
-                m |= df_f['Legajo'].astype(str).str.contains(buscar, na=False)
+            m = df_f[col_nom].astype(str).str.upper().str.contains(buscar.upper(),na=False)
+            if 'Legajo' in df_f.columns: m |= df_f['Legajo'].astype(str).str.contains(buscar,na=False)
             df_f = df_f[m]
-        if f_area != 'Todas' and col_area: df_f = df_f[df_f[col_area] == f_area]
-        if f_cat  != 'Todas' and col_cat:  df_f = df_f[df_f[col_cat]  == f_cat]
-        if f_est  != 'Todos' and 'Estado' in df_f.columns: df_f = df_f[df_f['Estado'] == f_est]
-        if f_jefe != 'Todos' and col_jefe: df_f = df_f[df_f[col_jefe] == f_jefe]
+        if f_area!='Todas' and col_area: df_f=df_f[df_f[col_area]==f_area]
+        if f_cat !='Todas' and col_cat:  df_f=df_f[df_f[col_cat]==f_cat]
+        if f_est !='Todos' and 'Estado' in df_f.columns: df_f=df_f[df_f['Estado']==f_est]
+        if f_jefe!='Todos' and col_jefe: df_f=df_f[df_f[col_jefe]==f_jefe]
 
         st.caption(f"{len(df_f):,} de {len(df):,} registros")
-        cols_t = [c for c in ['Legajo', col_nom, col_cat, col_area, col_jefe,
-                               'Administrador', 'Vencidos_real', col_pend,
-                               col_meta, 'Prog_visma', 'Pct_avance',
-                               col_dp, 'Fecha_limite', 'Estado']
-                  if c and c in df_f.columns]
+        cols_t = [c for c in ['Legajo',col_nom,col_cat,col_area,col_jefe,'Administrador',
+                               'Vencidos_real',col_pend,col_meta,'Prog_visma','Pct_avance',
+                               col_dp,'Fecha_limite','Estado'] if c and c in df_f.columns]
         show = df_f[cols_t].copy()
         if 'Estado' in show.columns: show['Estado'] = show['Estado'].apply(emo)
         st.dataframe(show, use_container_width=True, hide_index=True, height=500)
@@ -492,25 +444,22 @@ def main():
         c3.metric("🟡 En riesgo ≤90 días",len(df_r))
         c4.metric("🔕 Ignorados",         len(df_i))
 
-        cols_a = [c for c in [col_nom, col_area, col_jefe, 'Vencidos_real',
-                               col_pend, col_dp, 'Fecha_limite', 'Dias_restantes',
-                               'Estado', 'Comentario_ind']
+        cols_a = [c for c in [col_nom,col_area,col_jefe,'Vencidos_real',col_pend,
+                               col_dp,'Fecha_limite','Dias_restantes','Estado','Comentario_ind']
                   if c and c in df.columns]
 
         st.markdown("---")
         st.markdown("### 🔴 Días vencidos — riesgo de indemnización")
         if not df_v.empty:
-            show = df_v[cols_a].copy().sort_values('Vencidos_real', ascending=False)
+            show = df_v[cols_a].copy().sort_values('Vencidos_real',ascending=False)
             show['Estado'] = show['Estado'].apply(emo)
             st.dataframe(show, use_container_width=True, hide_index=True)
-            if role == 'RRHH':
+            if role=='RRHH':
                 st.markdown("**Marcar como ignorado** (ya gestionado por fuera):")
-                ci1, ci2, ci3 = st.columns(3)
-                leg_ig = ci1.text_input("Legajo", key="ig_in")
-                if ci2.button("🔕 Ignorar"):
-                    ignorar_legajo(leg_ig); st.rerun()
-                if ci3.button("🔔 Restaurar"):
-                    restaurar_legajo(leg_ig); st.rerun()
+                ci1,ci2,ci3 = st.columns(3)
+                leg_ig = ci1.text_input("Legajo",key="ig_in")
+                if ci2.button("🔕 Ignorar") and leg_ig: ignorar(leg_ig); st.rerun()
+                if ci3.button("🔔 Restaurar") and leg_ig: restaurar(leg_ig); st.rerun()
             st.download_button("⬇️ Descargar vencidos", to_excel(df_v),
                 file_name=f"vencidos_{date.today()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -536,30 +485,25 @@ def main():
         else:
             st.success("✅ Sin colaboradores en riesgo")
 
-        if not df_i.empty and role == 'RRHH':
+        if not df_i.empty and role=='RRHH':
             st.markdown("### 🔕 Ignorados por RRHH")
-            cols_i = [c for c in [col_nom, col_area, col_jefe, 'Comentario_ind']
-                      if c and c in df_i.columns]
+            cols_i = [c for c in [col_nom,col_area,col_jefe,'Comentario_ind'] if c and c in df_i.columns]
             st.dataframe(df_i[cols_i], use_container_width=True, hide_index=True)
 
     # ── CALENDARIO ─────────────────────────────────────────────────────────────
     elif pagina == "📅 Calendario":
         st.markdown("## Calendario de Vacaciones")
-        c1, c2 = st.columns([1,4])
+        c1,c2 = st.columns([1,4])
         with c1:
-            mes_sel  = st.selectbox("Mes",  MES_NAMES, index=date.today().month - 1)
-            anio_sel = st.selectbox("Año",  [2025,2026,2027], index=1)
-            f_jefe_c = st.selectbox("Jefe",
-                ['Todos'] + sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
-            f_area_c = st.selectbox("Área",
-                ['Todas'] + sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
-
+            mes_sel  = st.selectbox("Mes", MES_NAMES, index=date.today().month-1)
+            anio_sel = st.selectbox("Año", [2025,2026,2027], index=1)
+            f_jefe_c = st.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
+            f_area_c = st.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
         df_cal = df.copy()
-        if f_jefe_c != 'Todos' and col_jefe: df_cal = df_cal[df_cal[col_jefe] == f_jefe_c]
-        if f_area_c != 'Todas' and col_area: df_cal = df_cal[df_cal[col_area] == f_area_c]
-
+        if f_jefe_c!='Todos' and col_jefe: df_cal=df_cal[df_cal[col_jefe]==f_jefe_c]
+        if f_area_c!='Todas' and col_area: df_cal=df_cal[df_cal[col_area]==f_area_c]
         with c2:
-            mes_num = MES_NAMES.index(mes_sel) + 1
+            mes_num = MES_NAMES.index(mes_sel)+1
             st.markdown(f"### {mes_sel} {anio_sel} — {len(df_cal):,} colaboradores")
             render_calendario(df_visma, df_cal, mes_num, anio_sel)
 
@@ -570,34 +514,21 @@ def main():
         if grp:
             rows = []
             for gv in sorted(df[grp].dropna().unique()):
-                gd   = df[df[grp] == gv]
-                try:
-                    meta = float(gd[col_meta].apply(lambda x: float(x) if x is not None and str(x).strip() not in ['nan','None','','-'] else 0).sum()) if col_meta else 0.0
-                except Exception:
-                    meta = 0.0
-                prog = gd['Prog_visma'].fillna(0).sum() if 'Prog_visma' in gd.columns else 0
-                def _cap2(r):
-                    try:
-                        if not col_meta: return 0
-                        mv = r.get(col_meta)
-                        m  = float(mv) if mv is not None and str(mv).strip() not in ['nan','None','','-'] else 0
-                        pv = r.get('Prog_visma', 0)
-                        p  = float(pv) if pv is not None and str(pv).strip() not in ['nan','None',''] else 0
-                        return min(p, m)
-                    except (ValueError, TypeError):
-                        return 0
-                prog_cap = gd.apply(_cap2, axis=1).sum()
-                pct = round(prog_cap / meta * 100, 1) if meta > 0 else 0
+                gd      = df[df[grp]==gv]
+                meta    = col_sum(gd, col_meta)
+                prog    = col_sum(gd, 'Prog_visma')
+                prog_c  = cap_sum(gd, 'Prog_visma', col_meta)
+                pct     = round(prog_c/meta*100,1) if meta>0 else 0
                 rows.append({
-                    grp:              gv,
-                    'HC':             len(gd),
-                    'Vencidos':       int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0,
-                    'Críticos':       int((gd['Estado']=='CRITICO').sum()) if 'Estado' in gd.columns else 0,
-                    'En riesgo':      int((gd['Estado']=='EN_RIESGO').sum()) if 'Estado' in gd.columns else 0,
-                    'Meta 2026':      int(meta),
-                    'Prog. Visma':    int(prog),
-                    '% Avance':       pct,
-                    'Días x prog.':   int(gd[col_dp].fillna(0).astype(float).sum()) if col_dp else 0,
+                    grp:             gv,
+                    'HC':            len(gd),
+                    'Vencidos':      int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0,
+                    'Críticos':      int((gd['Estado']=='CRITICO').sum()) if 'Estado' in gd.columns else 0,
+                    'En riesgo':     int((gd['Estado']=='EN_RIESGO').sum()) if 'Estado' in gd.columns else 0,
+                    'Meta 2026':     int(meta),
+                    'Prog. Visma':   int(prog),
+                    '% Avance':      pct,
+                    'Días x prog.':  int(col_sum(gd, col_dp)),
                 })
             gdf = pd.DataFrame(rows)
             st.dataframe(gdf, use_container_width=True, hide_index=True)
@@ -617,28 +548,22 @@ def main():
             ln = df[['Legajo',col_nom]].drop_duplicates()
             ln['Legajo'] = ln['Legajo'].astype(str)
             hist = hist.merge(ln, on='Legajo', how='left')
-
         c1,c2,c3,c4 = st.columns(4)
         bus  = c1.text_input("🔍 Legajo o nombre")
-        anio = c2.selectbox("Año",
-            ['Todos'] + sorted(hist['Fecha_desde'].dt.year.dropna().astype(int).unique().tolist(), reverse=True))
-        est  = c3.selectbox("Estado",
-            ['Todos'] + sorted(hist['Estado_aus'].dropna().unique().tolist()))
-        per  = c4.selectbox("Periodo",
-            ['Todos'] + sorted(hist['Periodo'].dropna().unique().tolist(), reverse=True))
-
+        anio = c2.selectbox("Año",['Todos']+sorted(hist['Fecha_desde'].dt.year.dropna().astype(int).unique().tolist(),reverse=True))
+        est  = c3.selectbox("Estado",['Todos']+sorted(hist['Estado_aus'].dropna().unique().tolist()))
+        per  = c4.selectbox("Periodo",['Todos']+sorted(hist['Periodo'].dropna().unique().tolist(),reverse=True))
         hf = hist.copy()
         if bus:
-            mk = hf['Legajo'].astype(str).str.contains(bus, na=False)
+            mk = hf['Legajo'].astype(str).str.contains(bus,na=False)
             if col_nom and col_nom in hf.columns:
-                mk |= hf[col_nom].astype(str).str.upper().str.contains(bus.upper(), na=False)
+                mk |= hf[col_nom].astype(str).str.upper().str.contains(bus.upper(),na=False)
             hf = hf[mk]
-        if anio != 'Todos': hf = hf[hf['Fecha_desde'].dt.year == int(anio)]
-        if est  != 'Todos': hf = hf[hf['Estado_aus'] == est]
-        if per  != 'Todos': hf = hf[hf['Periodo'] == per]
-
-        st.caption(f"{len(hf):,} registros — {hf['Cant_dias'].sum():.0f} días totales")
-        st.dataframe(hf.sort_values('Fecha_desde', ascending=False),
+        if anio!='Todos': hf=hf[hf['Fecha_desde'].dt.year==int(anio)]
+        if est !='Todos': hf=hf[hf['Estado_aus']==est]
+        if per !='Todos': hf=hf[hf['Periodo']==per]
+        st.caption(f"{len(hf):,} registros — {hf['Cant_dias'].sum():.0f} días")
+        st.dataframe(hf.sort_values('Fecha_desde',ascending=False),
                      use_container_width=True, hide_index=True, height=500)
         st.download_button("⬇️ Descargar historial", to_excel(hf),
             file_name=f"historial_{date.today()}.xlsx",
@@ -650,21 +575,21 @@ def main():
         if role not in ['Gerente','RRHH']:
             st.warning("Solo RRHH y Gerentes pueden cargar archivos.")
             return
-        st.info("Sube los archivos de Visma del mes. El consolidado se actualiza automáticamente.")
+        st.info("Sube los archivos de Visma del mes.")
         c1,c2 = st.columns(2)
         with c1:
-            st.file_uploader("1. Vacaciones Visma",  type=['xlsx'], key='vac')
-            st.file_uploader("2. Empleados Visma",   type=['xlsx'], key='emp')
+            st.file_uploader("1. Vacaciones Visma",type=['xlsx'],key='vac')
+            st.file_uploader("2. Empleados Visma",type=['xlsx'],key='emp')
         with c2:
-            st.file_uploader("3. Atributos Visma",   type=['xlsx'], key='atr')
-            st.file_uploader("4. Altas y Bajas",     type=['xlsx'], key='ab')
+            st.file_uploader("3. Atributos Visma",type=['xlsx'],key='atr')
+            st.file_uploader("4. Altas y Bajas",type=['xlsx'],key='ab')
         st.markdown("---")
-        st.file_uploader("Meta anual (solo si hay cambios)", type=['xlsx'], key='meta')
-        st.file_uploader("Jerarquía (solo si hay rotación)", type=['xlsx'], key='jer')
+        st.file_uploader("Meta anual (solo si hay cambios)",type=['xlsx'],key='meta')
+        st.file_uploader("Jerarquía (solo si hay rotación)",type=['xlsx'],key='jer')
         st.dataframe(pd.DataFrame([
-            {'Archivo':'META_2026_-_Abril.xlsx','Mes':'Abril 2026','Registros':'2,144','Estado':'✅ Activo'},
-            {'Archivo':'Vacaciones_-_Dias_solicitados__28_.xlsx','Mes':'Histórico','Registros':'20,263','Estado':'✅ Activo'},
-        ]), use_container_width=True, hide_index=True)
+            {'Archivo':'META_2026_-_Abril.xlsx','Mes':'Abril 2026','Estado':'✅ Activo'},
+            {'Archivo':'Vacaciones_-_Dias_solicitados__28_.xlsx','Mes':'Histórico','Estado':'✅ Activo'},
+        ]),use_container_width=True,hide_index=True)
 
 if __name__ == '__main__':
     main()
