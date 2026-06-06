@@ -59,26 +59,28 @@ def check_auth():
     <div style='text-align:center;padding:40px 0 20px'>
       <div style='font-size:36px;font-weight:800;color:{AZUL}'>Apparka</div>
       <div style='font-size:18px;color:{MORADO};font-weight:500;margin-top:4px'>
-        Gestión de Vacaciones 2026</div>
+        Gestión de Vacaciones</div>
     </div>""", unsafe_allow_html=True)
 
     _, col, _ = st.columns([1,1.1,1])
     with col:
-        with st.container():
-            st.markdown(f"""<div style='background:white;border:1.5px solid {BORDE};
-            border-radius:14px;padding:28px 24px'>
-            <div style='font-weight:600;color:{AZUL};font-size:16px;margin-bottom:16px'>
-            Iniciar sesión</div></div>""", unsafe_allow_html=True)
-            usr = st.text_input("Correo corporativo", placeholder="nombre@apparka.com")
-            pwd = st.text_input("Contraseña", type="password")
-            if st.button("Ingresar →", use_container_width=True, type="primary"):
-                users = st.secrets.get("usuarios", {})
-                if usr in users and users[usr]["password"] == pwd:
-                    st.session_state.update(authenticated=True,
-                        user_name=users[usr]["nombre"], user_email=usr)
-                    st.rerun()
-                else:
-                    st.error("Usuario o contraseña incorrectos")
+        st.markdown(f"""
+        <div style='text-align:center;margin-bottom:8px'>
+          <div style='font-size:20px;color:{MORADO};font-weight:400;letter-spacing:.3px'>
+            Bienvenidos</div>
+          <div style='font-size:16px;font-weight:700;color:{AZUL};margin-top:2px'>
+            Iniciar Sesión</div>
+        </div>""", unsafe_allow_html=True)
+        usr = st.text_input("Correo corporativo", placeholder="nombre@apparka.com")
+        pwd = st.text_input("Contraseña", type="password")
+        if st.button("Ingresar →", use_container_width=True, type="primary"):
+            users = st.secrets.get("usuarios", {})
+            if usr in users and users[usr]["password"] == pwd:
+                st.session_state.update(authenticated=True,
+                    user_name=users[usr]["nombre"], user_email=usr)
+                st.rerun()
+            else:
+                st.error("Usuario o contraseña incorrectos")
     return False
 
 # ── CARGA ──────────────────────────────────────────────────────────────────────
@@ -186,7 +188,8 @@ def construir_consolidado(df_meta, df_visma):
     for _, row in df.iterrows():
         leg  = str(row['Legajo'])
         com  = str(row.get('Comentario_ind','') or '')
-        meta = float(row[col_meta] or 0) if col_meta and pd.notna(row.get(col_meta)) else 0
+        meta_val = row.get(col_meta) if col_meta else None
+        meta = float(meta_val) if meta_val is not None and str(meta_val) not in ['nan','None',''] else 0
         prog = float(row.get('Prog_visma', 0) or 0)
         pend = float(row.get('Pendientes', 0) or 0)
         fl   = fecha_limite(com)
@@ -382,9 +385,12 @@ def main():
         st.markdown("## Dashboard — Vacaciones")
 
         meta_t   = df[col_meta].fillna(0).astype(float).sum() if col_meta else 0
-        prog_cap = df.apply(lambda r: min(float(r.get('Prog_visma',0) or 0),
-                                          float(r[col_meta] or 0)) if col_meta else 0,
-                            axis=1).sum()
+        def _cap(r):
+            if not col_meta: return 0
+            mv = r.get(col_meta)
+            m  = float(mv) if mv is not None and str(mv) not in ['nan','None',''] else 0
+            return min(float(r.get('Prog_visma',0) or 0), m)
+        prog_cap = df.apply(_cap, axis=1).sum()
         pct      = round(prog_cap / meta_t * 100, 1) if meta_t > 0 else 0
         venc_n   = int((df['Vencidos_real'] > 0).sum()) if 'Vencidos_real' in df.columns else 0
         dp       = int(df[col_dp].fillna(0).astype(float).sum()) if col_dp else 0
@@ -550,10 +556,12 @@ def main():
                 gd   = df[df[grp] == gv]
                 meta = gd[col_meta].fillna(0).astype(float).sum() if col_meta else 0
                 prog = gd['Prog_visma'].fillna(0).sum() if 'Prog_visma' in gd.columns else 0
-                prog_cap = gd.apply(
-                    lambda r: min(float(r.get('Prog_visma',0) or 0),
-                                  float(r[col_meta] or 0)) if col_meta else 0,
-                    axis=1).sum()
+                def _cap2(r):
+                    if not col_meta: return 0
+                    mv = r.get(col_meta)
+                    m  = float(mv) if mv is not None and str(mv) not in ['nan','None',''] else 0
+                    return min(float(r.get('Prog_visma',0) or 0), m)
+                prog_cap = gd.apply(_cap2, axis=1).sum()
                 pct = round(prog_cap / meta * 100, 1) if meta > 0 else 0
                 rows.append({
                     grp:              gv,
