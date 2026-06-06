@@ -188,10 +188,21 @@ def construir_consolidado(df_meta, df_visma):
     for _, row in df.iterrows():
         leg  = str(row['Legajo'])
         com  = str(row.get('Comentario_ind','') or '')
-        meta_val = row.get(col_meta) if col_meta else None
-        meta = float(meta_val) if meta_val is not None and str(meta_val) not in ['nan','None',''] else 0
-        prog = float(row.get('Prog_visma', 0) or 0)
-        pend = float(row.get('Pendientes', 0) or 0)
+        try:
+            meta_val = row.get(col_meta) if col_meta else None
+            meta = float(meta_val) if meta_val is not None and str(meta_val).strip() not in ['nan','None','','-'] else 0
+        except (ValueError, TypeError):
+            meta = 0
+        try:
+            prog_val = row.get('Prog_visma', 0)
+            prog = float(prog_val) if prog_val is not None and str(prog_val).strip() not in ['nan','None',''] else 0
+        except (ValueError, TypeError):
+            prog = 0
+        try:
+            pend_val = row.get('Pendientes', 0)
+            pend = float(pend_val) if pend_val is not None and str(pend_val).strip() not in ['nan','None',''] else 0
+        except (ValueError, TypeError):
+            pend = 0
         fl   = fecha_limite(com)
 
         # % avance capeado al 100%
