@@ -209,16 +209,9 @@ def construir_consolidado(df_meta, df_visma):
     ignorados = get_ignorados()
 
     df = df_meta.copy()
-    col_prog_meta = next((c for c in ['Prog_meta','Programacion','Programación'] if c in df.columns), None)
-    if col_prog_meta:
-        df['Prog_visma'] = df[col_prog_meta].apply(safe_float)
-    else:
-        for m in MESES:
-            if m not in df.columns: df[m] = 0.0
-        df['Prog_visma'] = df[[m for m in MESES if m in df.columns]].apply(
-            lambda col: col.apply(safe_float)).sum(axis=1)
 
     if not df_visma.empty:
+        # Usar Visma como fuente de verdad para días programados 2026
         v2026 = df_visma[
             (df_visma['Fecha desde'].dt.year==2026) &
             (df_visma['Estado aus'].isin(['Aprobada','Pendiente']))
@@ -230,11 +223,22 @@ def construir_consolidado(df_meta, df_visma):
         for i in range(1,13):
             if i not in pivot.columns: pivot[i] = 0
         pivot.columns = ['Legajo'] + [MESES[i-1] for i in range(1,13)]
+        pivot['Prog_visma'] = pivot[MESES].sum(axis=1)
         df = df.merge(pivot, on='Legajo', how='left')
         for m in MESES:
             if m not in df.columns: df[m] = 0.0
             else: df[m] = df[m].fillna(0)
+        df['Prog_visma'] = df['Prog_visma'].fillna(0)
     else:
+        # Fallback al META si no hay Visma
+        col_prog_meta = next((c for c in ['Prog_meta','Programacion','Programación'] if c in df.columns), None)
+        if col_prog_meta:
+            df['Prog_visma'] = df[col_prog_meta].apply(safe_float)
+        else:
+            for m in MESES:
+                if m not in df.columns: df[m] = 0.0
+            df['Prog_visma'] = df[[m for m in MESES if m in df.columns]].apply(
+                lambda col: col.apply(safe_float)).sum(axis=1)
         for m in MESES:
             if m not in df.columns: df[m] = 0.0
 
@@ -461,6 +465,7 @@ def main():
         prog_ces = col_sum(df_ces, col_meta_full)
         prog_cap = prog_act + prog_ces
         pct      = round(prog_cap/meta_t*100,1) if meta_t>0 else 0
+        # Vencidos: usar df completo filtrado por usuario (igual que Centro de Alertas)
         venc_n   = int((df['Vencidos_real']>0).sum()) if 'Vencidos_real' in df.columns else 0
         dp       = int(col_sum(df, col_dp))
 
@@ -514,8 +519,9 @@ def main():
                                        '% Avance':f"{pctj}%",'Vencidos':vj,
                                        'Días x prog.':int(dpj)})
                 if rows_j:
-                    st.dataframe(pd.DataFrame(rows_j), use_container_width=True,
-                                 hide_index=True, height=360)
+                    rj = pd.DataFrame(rows_j)
+                    rj = rj.sort_values('Días x prog.', ascending=False)
+                    st.dataframe(rj, use_container_width=True, hide_index=True, height=360)
 
     # ── COLABORADORES POR AREA ─────────────────────────────────────────────────
     elif pagina == "👥 Colaboradores por Área":
