@@ -1,5 +1,5 @@
 """
-vacaciones.py - Gestion de Vacaciones Apparka
+vacaciones.py - Gestión de Vacaciones Apparka
 """
 import streamlit as st
 import pandas as pd
@@ -16,7 +16,7 @@ MORADO_L= "#F3E8FB"
 GRIS    = "#F5F4F1"
 BORDE   = "#E2E0D8"
 
-st.set_page_config(page_title="Gestion de Vacaciones Apparka",
+st.set_page_config(page_title="Gestión de Vacaciones Apparka",
                    page_icon="📅", layout="wide",
                    initial_sidebar_state="expanded")
 
@@ -108,15 +108,15 @@ def check_auth():
     st.markdown(f"""<div style='text-align:center;padding:40px 0 20px'>
       <div style='font-size:40px;font-weight:800;color:{AZUL}'>Apparka</div>
       <div style='font-size:17px;color:{MORADO};font-weight:500;margin-top:4px'>
-        Gestion de Vacaciones</div></div>""", unsafe_allow_html=True)
+        Gestión de Vacaciones</div></div>""", unsafe_allow_html=True)
     _, col, _ = st.columns([1,1.1,1])
     with col:
         st.markdown(f"""<div style='text-align:center;margin-bottom:16px'>
           <div style='font-size:15px;color:#888'>Bienvenidos</div>
-          <div style='font-size:20px;font-weight:700;color:{AZUL}'>Iniciar Sesion</div>
+          <div style='font-size:20px;font-weight:700;color:{AZUL}'>Iniciar Sesión</div>
         </div>""", unsafe_allow_html=True)
         usr = st.text_input("Correo corporativo", placeholder="nombre@apparka.com")
-        pwd = st.text_input("Contrasena", type="password")
+        pwd = st.text_input("Contraseña", type="password")
         if st.button("Ingresar", use_container_width=True, type="primary"):
             users = st.secrets.get("usuarios", {})
             if usr in users and users[usr]["password"] == pwd:
@@ -284,7 +284,7 @@ def construir_consolidado(df_meta, df_visma):
     df = df.copy()
     df['Estado']        = estados
     df['Vencidos_real'] = vencidos_r
-    df['Fecha limite']  = fechas_l
+    df['Fecha límite']  = fechas_l
     df['Dias restantes']= dias_rest
     df['Pct avance']    = pcts
     return df
@@ -303,8 +303,8 @@ def filtrar_usuario(df, user_name, pa):
     return df_act
 
 def emo(e):
-    return {'VENCIDO':'🔴 Vencido','CRITICO':'🟠 Critico','EN_RIESGO':'🟡 En riesgo',
-            'CUMPLIDO':'🟢 Cumplido','AL_DIA':'🟢 Al dia','SIN_SALDO':'⚪ Sin saldo',
+    return {'VENCIDO':'🔴 Vencido','CRITICO':'🟠 Crítico','EN_RIESGO':'🟡 En riesgo',
+            'CUMPLIDO':'🟢 Cumplido','AL_DIA':'🟡 Pendiente','SIN_SALDO':'⚪ Sin saldo',
             'IGNORADO':'🔕 Ignorado'}.get(str(e), str(e))
 
 def to_excel(df):
@@ -355,7 +355,7 @@ def render_calendario(df_visma, df_user, mes_num, anio=2026):
                 dias_p[cur.day].append(nombre.split()[0] if nombre else '')
             cur += timedelta(days=1)
 
-    dias_sem = ['Lun','Mar','Mie','Jue','Vie','Sab','Dom']
+    dias_sem = ['Lun','Mar','Miérc','Jue','Vie','Sáb','Dom']
     cols_h   = st.columns(7)
     for i,d in enumerate(dias_sem):
         cols_h[i].markdown(
@@ -380,12 +380,12 @@ def render_calendario(df_visma, df_user, mes_num, anio=2026):
                                  f"padding:1px 5px;margin:2px 0;font-size:10px;overflow:hidden;"
                                  f"text-overflow:ellipsis;white-space:nowrap'>{p}</div>")
                     if len(personas)>3:
-                        html += f"<div style='font-size:9px;color:{FUCSIA};font-weight:600'>+{len(personas)-3} mas</div>"
+                        html += f"<div style='font-size:9px;color:{FUCSIA};font-weight:600'>+{len(personas)-3} más</div>"
                     html += "</div>"
                     st.markdown(html, unsafe_allow_html=True)
 
     total_p = len(set(n for ps in dias_p.values() for n in ps))
-    st.caption(f"📊 {total_p} colaboradores — {vac_mes['Cant dias'].sum():.0f} dias totales")
+    st.caption(f"📊 {total_p} colaboradores — {vac_mes['Cant dias'].sum():.0f} días totales")
     if not vac_mes.empty:
         exp = vac_mes.copy()
         exp['Nombre'] = exp['Legajo'].map(leg_nombre)
@@ -429,18 +429,18 @@ def main():
         st.markdown(f"""<div style='text-align:center;padding:16px 0 8px'>
           <div style='font-size:22px;font-weight:800;color:white'>Apparka</div>
           <div style='font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px'>
-            Gestion de Vacaciones</div>
+            Gestión de Vacaciones</div>
         </div><hr style='border-color:rgba(255,255,255,0.2);margin:0 0 8px'>""",
             unsafe_allow_html=True)
         st.markdown(f"**{user_name}**")
         st.caption(f"Rol: {role}")
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2)'>",unsafe_allow_html=True)
         pagina = st.radio("", [
-            "📊 Dashboard","👥 Colaboradores por Area","🔔 Centro de Alertas",
+            "📊 Dashboard","👥 Colaboradores por Área","🔔 Centro de Alertas",
             "📅 Calendario","📋 Resumen Ejecutivo","📂 Historial de Vacaciones",
         ], label_visibility="collapsed")
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2)'>",unsafe_allow_html=True)
-        if st.button("Cerrar sesion"):
+        if st.button("Cerrar sesión"):
             st.session_state.authenticated = False; st.rerun()
 
     # ── DASHBOARD ──────────────────────────────────────────────────────────────
@@ -463,17 +463,17 @@ def main():
         dp       = int(col_sum(df, col_dp))
 
         c1,c2,c3,c4,c5 = st.columns(5)
-        c1.markdown(kpi("Meta 2026 (dias)", fmt_num(meta_t)), unsafe_allow_html=True)
-        c2.markdown(kpi("N Colaboradores", fmt_num(n_colab)), unsafe_allow_html=True)
-        c3.markdown(kpi("N Colab. vac. vencidas", venc_n, FUCSIA), unsafe_allow_html=True)
-        c4.markdown(kpi("% Avance meta 2026", f"{pct}%"), unsafe_allow_html=True)
-        c5.markdown(kpi("Dias por programar", fmt_num(dp), MORADO), unsafe_allow_html=True)
+        c1.markdown(kpi("Meta 2026 (días)", fmt_num(meta_t)), unsafe_allow_html=True)
+        c2.markdown(kpi("N° Colaboradores", fmt_num(n_colab)), unsafe_allow_html=True)
+        c3.markdown(kpi("N° Colab. con vac. vencidas", venc_n, FUCSIA), unsafe_allow_html=True)
+        c4.markdown(kpi("% Avance Meta 2026", f"{pct}%"), unsafe_allow_html=True)
+        c5.markdown(kpi("Días por programar", fmt_num(dp), MORADO), unsafe_allow_html=True)
 
         st.markdown("---")
         col_l, col_r = st.columns([1.2,1])
 
         with col_l:
-            st.markdown("### Top 10 areas con mas dias por programar")
+            st.markdown("### Top 10 áreas con mayor días pendientes por programar")
             if col_area and col_dp:
                 top10 = (df[df[col_dp].apply(safe_float)>0]
                          .groupby(col_area)[col_dp]
@@ -490,14 +490,14 @@ def main():
                         f"<div style='display:flex;justify-content:space-between;"
                         f"font-size:13px;margin-bottom:3px'>"
                         f"<span style='color:{AZUL};font-weight:500'>{row_t['Area']}</span>"
-                        f"<span style='color:{FUCSIA};font-weight:700'>{row_t['Dias']:,} dias</span></div>"
+                        f"<span style='color:{FUCSIA};font-weight:700'>{row_t['Dias']:,} días</span></div>"
                         f"<div style='height:7px;background:{AZUL_L};border-radius:4px'>"
                         f"<div style='width:{pct_b}%;height:100%;background:{FUCSIA};"
                         f"border-radius:4px'></div></div></div>",
                         unsafe_allow_html=True)
 
         with col_r:
-            st.markdown("### Resumen por jefe")
+            st.markdown("### Resumen por Jefe")
             if col_jefe and 'Estado' in df.columns:
                 rows_j = []
                 for jv in sorted(df[col_jefe].dropna().unique()):
@@ -510,26 +510,28 @@ def main():
                     if dpj > 0:  # Solo jefes con dias pendientes
                         rows_j.append({'Jefe':jv,'HC':len(gd),
                                        '% Avance':f"{pctj}%",'Vencidos':vj,
-                                       'Dias x prog.':dpj})
+                                       'Días x prog.':dpj})
                 if rows_j:
                     st.dataframe(pd.DataFrame(rows_j), use_container_width=True,
                                  hide_index=True, height=360)
 
     # ── COLABORADORES POR AREA ─────────────────────────────────────────────────
-    elif pagina == "👥 Colaboradores por Area":
-        st.markdown("## Colaboradores por Area")
+    elif pagina == "👥 Colaboradores por Área":
+        st.markdown("## Colaboradores por Área")
         c1,c2,c3,c4,c5 = st.columns(5)
         buscar = c1.text_input("🔍 Nombre o legajo")
-        f_area = c2.selectbox("Area",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
-        f_cat  = c3.selectbox("Categoria",['Todas']+sorted(df[col_cat].dropna().unique().tolist()) if col_cat else ['Todas'])
+        f_area = c2.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
+        f_cat  = c3.selectbox("Categoría",['Todas']+sorted(df[col_cat].dropna().unique().tolist()) if col_cat else ['Todas'])
         f_est  = c4.selectbox("Estado",['Todos','VENCIDO','CRITICO','EN_RIESGO','CUMPLIDO','AL_DIA','SIN_SALDO'])
         f_jefe = c5.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
 
-        # Solo colaboradores con dias pendientes por programar
+        # Solo colaboradores con area Y con dias pendientes por programar
         df_f = df.copy()
+        # Excluir sin area
+        if col_area:
+            df_f = df_f[df_f[col_area].notna() & (df_f[col_area].astype(str).str.strip()!='') & (df_f[col_area].astype(str).str.lower()!='none')]
         if col_dp and col_meta:
-            df_f = df_f[(df_f[col_dp].apply(safe_float)>0) |
-                        (df_f[col_meta].apply(safe_float)==0)]
+            df_f = df_f[df_f[col_dp].apply(safe_float)>0]
 
         if buscar and col_nom:
             mk = df_f[col_nom].astype(str).str.upper().str.contains(buscar.upper(),na=False)
@@ -540,22 +542,38 @@ def main():
         if f_est !='Todos' and 'Estado' in df_f.columns: df_f=df_f[df_f['Estado']==f_est]
         if f_jefe!='Todos' and col_jefe: df_f=df_f[df_f[col_jefe]==f_jefe]
 
-        st.caption(f"{len(df_f):,} colaboradores con dias por programar")
+        st.caption(f"{len(df_f):,} colaboradores con días pendientes por programar")
         cols_t = [c for c in ['Legajo',col_nom,col_cat,col_area,col_jefe,'Administrador',
                                col_pend,'Truncos',col_meta,'Prog_visma','Pct avance',
-                               col_dp,'Fecha limite','Estado']
+                               col_dp,'Fecha límite','Estado']
                   if c and c in df_f.columns]
         show = df_f[cols_t].copy()
         ren  = {col_nom:'Nombre',col_cat:'Categoria',col_area:'Area',col_jefe:'Jefe',
-                col_pend:'Pendientes',col_meta:'Meta 2026','Prog_visma':'Dias programados',
-                'Pct avance':'% Avance',col_dp:'Dias x prog.','Fecha limite':'Fecha limite'}
+                col_pend:'Pendientes',col_meta:'Meta 2026','Prog_visma':'Días programados',
+                'Pct avance':'% Avance',col_dp:'Días x prog.','Fecha límite':'Fecha límite'}
         show = show.rename(columns={k:v for k,v in ren.items() if k and k in show.columns})
         if '% Avance' in show.columns:
             show['% Avance'] = show['% Avance'].apply(lambda x: f"{safe_float(x):.1f}%")
         if 'Estado' in show.columns:
             show['Estado'] = show['Estado'].apply(emo)
-        # Color de fondo por estado
-        st.dataframe(show, use_container_width=True, hide_index=True, height=500)
+        if 'Días x prog.' in show.columns:
+            show['Días x prog.'] = show['Días x prog.'].apply(lambda x: int(safe_float(x)) if safe_float(x)>0 else 0)
+
+        def color_row(row):
+            estado = str(row.get('Estado',''))
+            if 'Vencido' in estado:
+                return [f'background-color:#FDE8F2;color:{AZUL}'] * len(row)
+            elif 'Crítico' in estado:
+                return [f'background-color:#FFF0E8;color:{AZUL}'] * len(row)
+            elif 'En riesgo' in estado:
+                return [f'background-color:#FFFBE8;color:{AZUL}'] * len(row)
+            elif 'Cumplido' in estado:
+                return [f'background-color:#E8F5EE;color:{AZUL}'] * len(row)
+            return [''] * len(row)
+
+        st.dataframe(
+            show.style.apply(color_row, axis=1),
+            use_container_width=True, hide_index=True, height=500)
         st.download_button("⬇️ Descargar Excel", to_excel(df_f),
             file_name=f"colaboradores_{date.today()}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -569,16 +587,16 @@ def main():
 
         c1,c2,c3 = st.columns(3)
         c1.metric("🔴 Vencidos",          len(df_v))
-        c2.metric("🟠 Criticos ≤30 dias", len(df_c))
-        c3.metric("🟡 En riesgo ≤90 dias",len(df_r))
+        c2.metric("🟠 Críticos ≤30 días", len(df_c))
+        c3.metric("🟡 En riesgo ≤90 días",len(df_r))
 
         cols_a = [c for c in ['Legajo',col_nom,col_area,col_jefe,'Vencidos_real',
-                               col_pend,col_dp,'Fecha limite','Dias restantes',
+                               col_pend,col_dp,'Fecha límite','Dias restantes',
                                'Estado','Comentario_ind']
                   if c and c in df.columns]
 
         st.markdown("---")
-        st.markdown("### 🔴 Dias vencidos — riesgo de indemnizacion")
+        st.markdown("### 🔴 Días vencidos — riesgo de indemnización")
         if not df_v.empty:
             show = df_v[cols_a].copy().sort_values('Vencidos_real',ascending=False)
             show['Estado'] = show['Estado'].apply(emo)
@@ -593,17 +611,17 @@ def main():
                 file_name=f"vencidos_{date.today()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
-            st.success("Sin dias vencidos en tu vista")
+            st.success("Sin días vencidos en tu vista")
 
-        st.markdown("### 🟠 Criticos — vencen en menos de 30 dias")
+        st.markdown("### 🟠 Críticos — vencen en menos de 30 días")
         if not df_c.empty:
             show = df_c[cols_a].copy().sort_values('Dias restantes')
             show['Estado'] = show['Estado'].apply(emo)
             st.dataframe(show, use_container_width=True, hide_index=True)
         else:
-            st.success("Sin criticos")
+            st.success("Sin críticos")
 
-        st.markdown("### 🟡 En riesgo — vencen en 30-90 dias")
+        st.markdown("### 🟡 En riesgo — vencen en 30–90 días")
         if not df_r.empty:
             show = df_r[cols_a].copy().sort_values('Dias restantes')
             show['Estado'] = show['Estado'].apply(emo)
@@ -620,9 +638,9 @@ def main():
         c1,c2 = st.columns([1,4])
         with c1:
             mes_sel  = st.selectbox("Mes", MES_NAMES, index=date.today().month-1)
-            anio_sel = st.selectbox("Ano", [2025,2026,2027], index=1)
+            anio_sel = st.selectbox("Año", [2025,2026,2027], index=1)
             f_jefe_c = st.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
-            f_area_c = st.selectbox("Area",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
+            f_area_c = st.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
             f_leg_c  = st.text_input("Buscar legajo o nombre", placeholder="Ej: 1000097727")
         df_cal = df.copy()
         if f_jefe_c!='Todos' and col_jefe: df_cal=df_cal[df_cal[col_jefe]==f_jefe_c]
@@ -652,12 +670,12 @@ def main():
                     grp:           gv,
                     'HC':          len(gd),
                     'Vencidos':    int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0,
-                    'Criticos':    int((gd['Estado']=='CRITICO').sum()) if 'Estado' in gd.columns else 0,
+                    'Críticos':    int((gd['Estado']=='CRITICO').sum()) if 'Estado' in gd.columns else 0,
                     'En riesgo':   int((gd['Estado']=='EN_RIESGO').sum()) if 'Estado' in gd.columns else 0,
                     'Meta 2026':   int(meta),
                     'Prog. Visma': int(prog),
                     '% Avance':    f"{pct2}%",
-                    'Dias x prog.':f"{int(col_sum(gd, col_dp)):,}",
+                    'Días x prog.':f"{int(col_sum(gd, col_dp)):,}",
                 })
             gdf = pd.DataFrame(rows)
             # Estilo con colores Apparka en header
@@ -691,7 +709,7 @@ def main():
 
         c1,c2,c3,c4 = st.columns(4)
         bus  = c1.text_input("🔍 Legajo o nombre")
-        anio = c2.selectbox("Ano",['Todos']+sorted(
+        anio = c2.selectbox("Año",['Todos']+sorted(
             [int(x) for x in hist['Fecha desde'].apply(
                 lambda x: x.year if hasattr(x,'year') else 0).unique() if x>0],reverse=True))
         est  = c3.selectbox("Estado",['Todos']+sorted(hist['Estado aus'].dropna().unique().tolist()))
@@ -715,12 +733,14 @@ def main():
         cols_h  = [c for c in cols_h if c in hf.columns]
         hf_show = hf[cols_h].copy()
         hf_show = hf_show.rename(columns={
-            col_nombre_h: 'Apellidos y Nombre',
-            'Cant dias': 'Cantidad dias',
+            col_nombre_h: 'Apellidos y Nombres',
+            'Cant dias': 'Cantidad días',
             'Estado aus': 'Estado',
+            'Fecha desde': 'Fecha desde',
+            'Fecha hasta': 'Fecha hasta',
         })
 
-        st.caption(f"{len(hf_show):,} registros — {hf['Cant dias'].sum():.0f} dias totales")
+        st.caption(f"{len(hf_show):,} registros — {int(hf['Cant dias'].sum()):,} días totales")
         st.dataframe(hf_show.sort_values('Fecha desde',ascending=False),
                      use_container_width=True, hide_index=True, height=500)
         st.download_button("⬇️ Descargar historial", to_excel(hf_show),
