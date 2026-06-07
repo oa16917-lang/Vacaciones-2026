@@ -117,9 +117,8 @@ def cargar_meta():
                     col_map['COMENTARIOS PARA CUMPLIMIENTO META 2026'] = 'Comentario_meta'
                 df = df.rename(columns=col_map)
                 df['Legajo'] = df['Legajo'].astype(str).str.replace('.0','',regex=False).str.strip()
-                ca = next((c for c in ['AREA','Area'] if c in df.columns), None)
-                if ca:
-                    df = df[df[ca].notna() & (df[ca].astype(str).str.strip()!='')]
+                # No filtramos por área — incluimos activos Y cesados
+                # Los cesados (sin área) se incluyen con avance 100% en el cálculo global
                 return df
         except:
             continue
@@ -174,6 +173,20 @@ def construir_consolidado(df_meta, df_visma):
     hoy       = date.today()
     ignorados = get_ignorados()
 
+    # Usar columna Programación del META como fuente de programación
+    # (ya suma Ene-Dic y es la fuente de verdad del consolidado)
+    df = df_meta.copy()
+    col_prog_meta = next((c for c in ['Prog_meta','Programación'] if c in df.columns), None)
+    if col_prog_meta:
+        df['Prog_visma'] = df[col_prog_meta].apply(safe_float)
+    else:
+        # fallback: sumar meses del META
+        for m in MESES:
+            if m not in df.columns: df[m] = 0.0
+        df['Prog_visma'] = df[[m for m in MESES if m in df.columns]].apply(
+            lambda col: col.apply(safe_float)).sum(axis=1)
+
+    # Si tenemos Visma, lo usamos para el calendario pero Programación del META para KPIs
     if not df_visma.empty:
         v2026 = df_visma[
             (df_visma['Fecha_desde'].dt.year==2026) &
@@ -186,17 +199,13 @@ def construir_consolidado(df_meta, df_visma):
         for i in range(1,13):
             if i not in pivot.columns: pivot[i] = 0
         pivot.columns = ['Legajo'] + [MESES[i-1] for i in range(1,13)]
-        pivot['Prog_visma'] = pivot[MESES].sum(axis=1)
-        df = df_meta.merge(pivot, on='Legajo', how='left')
+        df = df.merge(pivot, on='Legajo', how='left')
         for m in MESES:
             if m not in df.columns: df[m] = 0.0
             else: df[m] = df[m].fillna(0)
-        df['Prog_visma'] = df['Prog_visma'].fillna(0)
     else:
-        df = df_meta.copy()
         for m in MESES:
             if m not in df.columns: df[m] = 0.0
-        df['Prog_visma'] = df[[m for m in MESES if m in df.columns]].sum(axis=1)
 
     col_meta = next((c for c in ['Meta2026'] if c in df.columns and df[c].notna().any()), None)
 
@@ -209,23 +218,35 @@ def construir_consolidado(df_meta, df_visma):
         pend = safe_float(row.get('Pendientes'))
         fl   = fecha_limite(com)
 
-        pct    = round(min(prog, meta) / meta * 100, 1) if meta > 0 else 0
-        dias_r = (fl - hoy).days if fl else 999
+        col_area_val = row.get('AREA') or row.get('Area')
+        es_cesado    = not col_area_val or str(col_area_val).strip() == ''
+        dias_x_prog  = safe_float(row.get('Dias_x_prog') or row.get('Días Pendientes de programación'))
 
-        venc = 0
-        if fl and fl < hoy and pend > 0 and leg not in ignorados:
-            md = re.search(r'DEBE GOZAR (\d+)', com.upper())
-            dias_debia = int(md.group(1)) if md else int(pend)
-            if prog < dias_debia:
-                venc = max(0, dias_debia - prog)
+        # Cesados 2025: avance 100%, sin alertas
+        if es_cesado:
+            pct    = 100.0
+            venc   = 0
+            dias_r = 999
+            estado = 'CUMPLIDO'
+        else:
+            pct    = round(min(prog, meta) / meta * 100, 1) if meta > 0 else 0
+            dias_r = (fl - hoy).days if fl else 999
 
-        if leg in ignorados:               estado = 'IGNORADO'
-        elif venc > 0:                     estado = 'VENCIDO'
-        elif fl and dias_r <= 30 and pend > 0: estado = 'CRITICO'
-        elif fl and dias_r <= 90 and pend > 0: estado = 'EN_RIESGO'
-        elif meta > 0 and prog >= meta:    estado = 'CUMPLIDO'
-        elif meta == 0 and pend == 0:      estado = 'SIN_SALDO'
-        else:                              estado = 'AL_DIA'
+            # Vencido real: fecha pasó Y todavía tiene días sin programar
+            venc = 0
+            if fl and fl < hoy and dias_x_prog > 0 and leg not in ignorados:
+                md = re.search(r'DEBE GOZAR (\d+)', com.upper())
+                dias_debia = int(md.group(1)) if md else int(dias_x_prog)
+                if prog < dias_debia:
+                    venc = max(0, dias_debia - prog)
+
+            if leg in ignorados:                        estado = 'IGNORADO'
+            elif venc > 0:                              estado = 'VENCIDO'
+            elif fl and dias_r <= 30 and dias_x_prog > 0: estado = 'CRITICO'
+            elif fl and dias_r <= 90 and dias_x_prog > 0: estado = 'EN_RIESGO'
+            elif meta > 0 and prog >= meta:             estado = 'CUMPLIDO'
+            elif meta == 0 and pend == 0:               estado = 'SIN_SALDO'
+            else:                                       estado = 'AL_DIA'
 
         estados.append(estado); vencidos_r.append(round(venc,1))
         fechas_l.append(str(fl) if fl else '')
@@ -345,6 +366,8 @@ def main():
 
     df_full = construir_consolidado(df_meta, df_visma)
     df      = filtrar_usuario(df_full, user_name, pa)
+    # Para KPIs globales usamos df_full (incluye cesados)
+    # Para vistas individuales usamos df (filtrado por jerarquía)
     role    = pa.get(user_name, {}).get('role','RRHH')
 
     col_meta = next((c for c in ['Meta2026'] if c in df.columns and df[c].notna().any()), None)
@@ -394,11 +417,14 @@ def main():
             st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>Días por programar</div><div style='font-size:26px;font-weight:700;color:{MORADO};text-align:center'>{dp:,}</div>", unsafe_allow_html=True)
 
         st.markdown("---")
-        st.markdown("### Colaboradores que requieren atención")
+        st.markdown("### Colaboradores con meta pendiente por programar")
         if 'Estado' in df.columns:
             cond = df['Estado'].isin(['VENCIDO','CRITICO','EN_RIESGO'])
-            if col_pend:
-                cond = cond & (df[col_pend].apply(safe_float) > 0)
+            # Solo mostrar quienes tienen días realmente pendientes de programar
+            col_dp_check = next((c for c in ['Dias_x_prog','Días Pendientes de programación']
+                                  if c in df.columns), None)
+            if col_dp_check:
+                cond = cond & (df[col_dp_check].apply(safe_float) > 0)
             df_at = df[cond].copy()
             if not df_at.empty:
                 df_at = df_at.sort_values('Vencidos_real', ascending=False)
