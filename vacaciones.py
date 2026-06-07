@@ -156,6 +156,13 @@ def cargar_jerarquia():
     except:
         return {}
 
+def es_direccion(cargo):
+    # Retorna True si el cargo es gerencial - no generan alertas de vencidos
+    if not cargo or str(cargo).strip() in ['','nan','None']: return False
+    c = str(cargo).upper().strip()
+    if 'ASISTENTE' in c: return False  # Asistente de Gerencia no es direccion
+    return any(x in c for x in ['GERENTE','SUB GERENTE','SUBGERENTE'])
+
 def get_ignorados():
     return st.session_state.get('ignorados', set())
 
@@ -228,6 +235,8 @@ def construir_consolidado(df_meta, df_visma):
         fl   = fecha_limite(com)
 
         es_cesado = bool(row.get('es_cesado', False))
+        cargo_val = str(row.get('Cargo','') or '')
+        es_dir    = es_direccion(cargo_val)
         dias_x_prog  = safe_float(row.get('Dias_x_prog') or row.get('Días Pendientes de programación'))
 
         # Cesados 2025: avance 100%, sin alertas
@@ -242,19 +251,23 @@ def construir_consolidado(df_meta, df_visma):
 
             # Vencido real: fecha pasó Y todavía tiene días sin programar
             venc = 0
-            if fl and fl < hoy and dias_x_prog > 0 and leg not in ignorados:
+            if not es_dir and fl and fl < hoy and dias_x_prog > 0 and leg not in ignorados:
                 md = re.search(r'DEBE GOZAR (\d+)', com.upper())
                 dias_debia = int(md.group(1)) if md else int(dias_x_prog)
                 if prog < dias_debia:
                     venc = max(0, dias_debia - prog)
 
             if leg in ignorados:                        estado = 'IGNORADO'
-            elif venc > 0:                              estado = 'VENCIDO'
+            elif es_dir:
+                if meta > 0 and prog >= meta:          estado = 'CUMPLIDO'
+                elif meta == 0 and pend == 0:          estado = 'SIN_SALDO'
+                else:                                  estado = 'AL_DIA'
+            elif venc > 0:                             estado = 'VENCIDO'
             elif fl and dias_r <= 30 and dias_x_prog > 0: estado = 'CRITICO'
             elif fl and dias_r <= 90 and dias_x_prog > 0: estado = 'EN_RIESGO'
-            elif meta > 0 and prog >= meta:             estado = 'CUMPLIDO'
-            elif meta == 0 and pend == 0:               estado = 'SIN_SALDO'
-            else:                                       estado = 'AL_DIA'
+            elif meta > 0 and prog >= meta:            estado = 'CUMPLIDO'
+            elif meta == 0 and pend == 0:              estado = 'SIN_SALDO'
+            else:                                      estado = 'AL_DIA'
 
         estados.append(estado); vencidos_r.append(round(venc,1))
         fechas_l.append(str(fl) if fl else '')
@@ -415,20 +428,23 @@ def main():
     if pagina == "📊 Dashboard":
         st.markdown("## Dashboard — Vacaciones")
 
-        # Meta total = todos incluidos cesados (df_full)
-        # KPIs de avance/vencidos = solo activos en mi vista (df)
+        # Todos los KPIs usan df_full (activos + cesados con avance 100%)
         col_meta_full = next((c for c in ['Meta2026'] if c in df_full.columns), None)
-        meta_t   = col_sum(df_full, col_meta_full)  # 41,962 — incluye cesados
-        prog_cap = cap_sum(df, 'Prog_visma', col_meta)  # solo activos en vista
-        pct      = round(prog_cap / meta_t * 100, 1) if meta_t > 0 else 0
-        venc_n   = int((df['Vencidos_real'] > 0).sum()) if 'Vencidos_real' in df.columns else 0
-        dp       = int(col_sum(df, col_dp))
+        meta_t    = col_sum(df_full, col_meta_full)       # 41,962
+        # Prog capeada: activos usan Prog_visma, cesados cuentan meta completa
+        prog_activos  = cap_sum(df, 'Prog_visma', col_meta)
+        prog_cesados  = col_sum(df_full[df_full.get('es_cesado', pd.Series(False, index=df_full.index)).astype(bool)], col_meta_full) if 'es_cesado' in df_full.columns else 0.0
+        prog_cap  = prog_activos + prog_cesados
+        pct       = round(prog_cap / meta_t * 100, 1) if meta_t > 0 else 0
+        n_colab   = len(df_full[~df_full.get('es_cesado', pd.Series(False, index=df_full.index)).astype(bool)]) if 'es_cesado' in df_full.columns else len(df)
+        venc_n    = int((df['Vencidos_real'] > 0).sum()) if 'Vencidos_real' in df.columns else 0
+        dp        = int(col_sum(df, col_dp))
 
         c1,c2,c3,c4,c5 = st.columns(5)
         with c1:
             st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>Meta 2026 (días)</div><div style='font-size:26px;font-weight:700;color:{AZUL};text-align:center'>{int(meta_t):,}</div>", unsafe_allow_html=True)
         with c2:
-            st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>N° Colaboradores</div><div style='font-size:26px;font-weight:700;color:{AZUL};text-align:center'>{len(df):,}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>N° Colaboradores</div><div style='font-size:26px;font-weight:700;color:{AZUL};text-align:center'>{n_colab:,}</div>", unsafe_allow_html=True)
         with c3:
             st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>N° Colab. vac. vencidas</div><div style='font-size:26px;font-weight:700;color:{FUCSIA};text-align:center'>{venc_n}</div>", unsafe_allow_html=True)
         with c4:
