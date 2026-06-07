@@ -164,17 +164,33 @@ def es_direccion(cargo):
     return any(x in c for x in ['GERENTE','SUB GERENTE','SUBGERENTE'])
 
 def get_ignorados():
-    return st.session_state.get('ignorados', set())
+    # Primero el JSON persistente, luego los de sesion
+    persistentes = set()
+    try:
+        with open('ignorados.json', encoding='utf-8') as f:
+            persistentes = set(json.load(f))
+    except:
+        pass
+    sesion = st.session_state.get('ignorados', set())
+    return persistentes | sesion
 
 def ignorar(leg):
-    ig = st.session_state.get('ignorados', set())
-    ig.add(str(leg))
+    ig = get_ignorados(); ig.add(str(leg))
     st.session_state['ignorados'] = ig
+    try:
+        with open('ignorados.json', 'w', encoding='utf-8') as f:
+            json.dump(list(ig), f)
+    except:
+        pass
 
 def restaurar(leg):
-    ig = st.session_state.get('ignorados', set())
-    ig.discard(str(leg))
+    ig = get_ignorados(); ig.discard(str(leg))
     st.session_state['ignorados'] = ig
+    try:
+        with open('ignorados.json', 'w', encoding='utf-8') as f:
+            json.dump(list(ig), f)
+    except:
+        pass
 
 # ── Lógica vacaciones ──────────────────────────────────────────────────────────
 def fecha_limite(comentario):
@@ -453,33 +469,49 @@ def main():
             st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>Días por programar</div><div style='font-size:26px;font-weight:700;color:{MORADO};text-align:center'>{dp:,}</div>", unsafe_allow_html=True)
 
         st.markdown("---")
-        st.markdown("### Colaboradores con meta pendiente por programar")
-        if 'Estado' in df.columns:
-            cond = df['Estado'].isin(['VENCIDO','CRITICO','EN_RIESGO'])
-            # Solo mostrar quienes tienen días realmente pendientes de programar
-            col_dp_check = next((c for c in ['Dias_x_prog','Días Pendientes de programación']
-                                  if c in df.columns), None)
-            if col_dp_check:
-                cond = cond & (df[col_dp_check].apply(safe_float) > 0)
-            df_at = df[cond].copy()
-            if not df_at.empty:
-                df_at = df_at.sort_values('Vencidos_real', ascending=False)
-                cols_s = [c for c in [col_nom,col_area,col_jefe,
-                                       col_pend,'Truncos',col_meta,'Prog_visma',
-                                       col_dp,'Fecha_limite','Estado']
-                          if c and c in df_at.columns]
-                show = df_at[cols_s].head(20).copy()
-                rename_d = {
-                    col_nom:'Nombre', col_area:'Área', col_jefe:'Jefe',
-                    col_pend:'Pendientes', col_meta:'Meta 2026',
-                    'Prog_visma':'Días programados', col_dp:'Días x prog.',
-                    'Fecha_limite':'Fecha límite'
-                }
-                show = show.rename(columns={k:v for k,v in rename_d.items() if k and k in show.columns})
-                show['Estado'] = show['Estado'].apply(emo)
-                st.dataframe(show, use_container_width=True, hide_index=True)
-            else:
-                st.success("✅ Sin colaboradores con alertas activas")
+        col_l, col_r = st.columns([1.2, 1])
+
+        with col_l:
+            st.markdown("### Top 5 areas con mas dias por programar")
+            if col_area and col_dp:
+                top5 = (df[df[col_dp].apply(safe_float) > 0]
+                        .groupby(col_area)[col_dp]
+                        .apply(lambda x: x.apply(safe_float).sum())
+                        .sort_values(ascending=False)
+                        .head(5)
+                        .reset_index())
+                top5.columns = ['Area', 'Dias x prog.']
+                top5['Dias x prog.'] = top5['Dias x prog.'].astype(int)
+                max_val = int(top5['Dias x prog.'].max()) if len(top5) > 0 else 1
+                for _, row_t in top5.iterrows():
+                    pct_b = int(row_t['Dias x prog.'] / max_val * 100) if max_val > 0 else 0
+                    st.markdown(
+                        f"<div style='margin-bottom:12px'>"
+                        f"<div style='display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px'>"
+                        f"<span style='color:{AZUL};font-weight:500'>{row_t['Area']}</span>"
+                        f"<span style='color:{FUCSIA};font-weight:700'>{row_t['Dias x prog.']:,} dias</span></div>"
+                        f"<div style='height:8px;background:{AZUL_L};border-radius:4px'>"
+                        f"<div style='width:{pct_b}%;height:100%;background:{FUCSIA};border-radius:4px'></div>"
+                        f"</div></div>",
+                        unsafe_allow_html=True)
+
+        with col_r:
+            st.markdown("### Resumen por jefe")
+            if col_jefe and col_dp and 'Estado' in df.columns:
+                rows_j = []
+                for jefe_v in sorted(df[col_jefe].dropna().unique()):
+                    gd_j   = df[df[col_jefe] == jefe_v]
+                    meta_j = col_sum(gd_j, col_meta)
+                    prog_j = cap_sum(gd_j, 'Prog_visma', col_meta)
+                    pct_j  = round(prog_j/meta_j*100,1) if meta_j > 0 else 0
+                    venc_j = int((gd_j['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd_j.columns else 0
+                    dp_j   = int(col_sum(gd_j, col_dp))
+                    rows_j.append({'Jefe': jefe_v, 'HC': len(gd_j),
+                                   '% Avance': pct_j, 'Vencidos': venc_j,
+                                   'Dias x prog.': dp_j})
+                rj_df = pd.DataFrame(rows_j)
+                st.dataframe(rj_df, use_container_width=True, hide_index=True, height=320)
+
 
     # ── COLABORADORES ──────────────────────────────────────────────────────────
     elif pagina == "👥 Colaboradores":
@@ -545,7 +577,7 @@ def main():
         c3.metric("🟡 En riesgo ≤90 días",len(df_r))
         c4.metric("🔕 Ignorados",         len(df_i))
 
-        cols_a = [c for c in [col_nom,col_area,col_jefe,'Vencidos_real',col_pend,
+        cols_a = [c for c in ['Legajo',col_nom,col_area,col_jefe,'Vencidos_real',col_pend,
                                col_dp,'Fecha_limite','Dias_restantes','Estado','Comentario_ind']
                   if c and c in df.columns]
 
@@ -600,9 +632,16 @@ def main():
             anio_sel = st.selectbox("Año", [2025,2026,2027], index=1)
             f_jefe_c = st.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
             f_area_c = st.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
+            f_leg_c  = st.text_input("Buscar legajo o nombre", placeholder="Ej: 1000097727")
         df_cal = df.copy()
         if f_jefe_c!='Todos' and col_jefe: df_cal=df_cal[df_cal[col_jefe]==f_jefe_c]
         if f_area_c!='Todas' and col_area: df_cal=df_cal[df_cal[col_area]==f_area_c]
+        if f_leg_c:
+            col_nom_c = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df_cal.columns), None)
+            mk = df_cal['Legajo'].astype(str).str.contains(f_leg_c, na=False)
+            if col_nom_c:
+                mk |= df_cal[col_nom_c].astype(str).str.upper().str.contains(f_leg_c.upper(), na=False)
+            df_cal = df_cal[mk]
         with c2:
             mes_num = MES_NAMES.index(mes_sel)+1
             st.markdown(f"### {mes_sel} {anio_sel} — {len(df_cal):,} colaboradores")
