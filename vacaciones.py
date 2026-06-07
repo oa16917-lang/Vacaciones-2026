@@ -270,7 +270,9 @@ def construir_consolidado(df_meta, df_visma):
                 md = re.search(r'DEBE GOZAR (\d+)', com.upper())
                 dd = int(md.group(1)) if md else int(dias_x)
                 if prog < dd: venc = max(0, dd-prog)
-            if venc>0:                              estado='VENCIDO'
+            # Fecha ya pasó Y tiene días sin programar → VENCIDO siempre
+            if fl and dias_r < 0 and dias_x > 0:   estado='VENCIDO'
+            elif venc>0:                            estado='VENCIDO'
             elif fl and dias_r<=30 and dias_x>0:   estado='CRITICO'
             elif fl and dias_r<=90 and dias_x>0:   estado='EN_RIESGO'
             elif meta>0 and prog>=meta:             estado='CUMPLIDO'
@@ -510,7 +512,7 @@ def main():
                     if dpj > 0:  # Solo jefes con dias pendientes
                         rows_j.append({'Jefe':jv,'HC':len(gd),
                                        '% Avance':f"{pctj}%",'Vencidos':vj,
-                                       'Días x prog.':dpj})
+                                       'Días x prog.':int(dpj)})
                 if rows_j:
                     st.dataframe(pd.DataFrame(rows_j), use_container_width=True,
                                  hide_index=True, height=360)
@@ -556,24 +558,12 @@ def main():
             show['% Avance'] = show['% Avance'].apply(lambda x: f"{safe_float(x):.1f}%")
         if 'Estado' in show.columns:
             show['Estado'] = show['Estado'].apply(emo)
-        if 'Días x prog.' in show.columns:
-            show['Días x prog.'] = show['Días x prog.'].apply(lambda x: int(safe_float(x)) if safe_float(x)>0 else 0)
+        # Redondear columnas numéricas a entero
+        for col_int in ['Pendientes','Truncos','Días programados','Días x prog.','Meta 2026']:
+            if col_int in show.columns:
+                show[col_int] = show[col_int].apply(lambda x: int(safe_float(x)))
 
-        def color_row(row):
-            estado = str(row.get('Estado',''))
-            if 'Vencido' in estado:
-                return [f'background-color:#FDE8F2;color:{AZUL}'] * len(row)
-            elif 'Crítico' in estado:
-                return [f'background-color:#FFF0E8;color:{AZUL}'] * len(row)
-            elif 'En riesgo' in estado:
-                return [f'background-color:#FFFBE8;color:{AZUL}'] * len(row)
-            elif 'Cumplido' in estado:
-                return [f'background-color:#E8F5EE;color:{AZUL}'] * len(row)
-            return [''] * len(row)
-
-        st.dataframe(
-            show.style.apply(color_row, axis=1),
-            use_container_width=True, hide_index=True, height=500)
+        st.dataframe(show, use_container_width=True, hide_index=True, height=500)
         st.download_button("⬇️ Descargar Excel", to_excel(df_f),
             file_name=f"colaboradores_{date.today()}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -667,15 +657,15 @@ def main():
                 pgc  = cap_sum(gd, 'Prog_visma', col_meta)
                 pct2 = round(pgc/meta*100,1) if meta>0 else 0
                 rows.append({
-                    grp:           gv,
-                    'HC':          len(gd),
-                    'Vencidos':    int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0,
-                    'Críticos':    int((gd['Estado']=='CRITICO').sum()) if 'Estado' in gd.columns else 0,
-                    'En riesgo':   int((gd['Estado']=='EN_RIESGO').sum()) if 'Estado' in gd.columns else 0,
-                    'Meta 2026':   int(meta),
-                    'Prog. Visma': int(prog),
-                    '% Avance':    f"{pct2}%",
-                    'Días x prog.':f"{int(col_sum(gd, col_dp)):,}",
+                    grp:                gv,
+                    'HC':               f"{len(gd):,}",
+                    'Vencidos':         int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0,
+                    'Críticos':         int((gd['Estado']=='CRITICO').sum()) if 'Estado' in gd.columns else 0,
+                    'En riesgo':        int((gd['Estado']=='EN_RIESGO').sum()) if 'Estado' in gd.columns else 0,
+                    'Meta 2026':        f"{int(meta):,}",
+                    'Días programados': f"{int(prog):,}",
+                    '% Avance':         f"{pct2}%",
+                    'Días x prog.':     f"{int(col_sum(gd, col_dp)):,}",
                 })
             gdf = pd.DataFrame(rows)
             # Estilo con colores Apparka en header
