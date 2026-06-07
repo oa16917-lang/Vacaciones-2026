@@ -117,8 +117,16 @@ def cargar_meta():
                     col_map['COMENTARIOS PARA CUMPLIMIENTO META 2026'] = 'Comentario_meta'
                 df = df.rename(columns=col_map)
                 df['Legajo'] = df['Legajo'].astype(str).str.replace('.0','',regex=False).str.strip()
-                # No filtramos por área — incluimos activos Y cesados
-                # Los cesados (sin área) se incluyen con avance 100% en el cálculo global
+                # Eliminar fila vacía sin nombre
+                col_nom = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df.columns), None)
+                if col_nom:
+                    df = df[df[col_nom].notna() & (df[col_nom].astype(str).str.strip() != '')]
+                # Marcar cesados (sin área) para cálculo de meta global
+                ca = next((c for c in ['AREA','Area'] if c in df.columns), None)
+                if ca:
+                    df['es_cesado'] = df[ca].isna() | (df[ca].astype(str).str.strip() == '')
+                else:
+                    df['es_cesado'] = False
                 return df
         except:
             continue
@@ -218,8 +226,7 @@ def construir_consolidado(df_meta, df_visma):
         pend = safe_float(row.get('Pendientes'))
         fl   = fecha_limite(com)
 
-        col_area_val = row.get('AREA') or row.get('Area')
-        es_cesado    = not col_area_val or str(col_area_val).strip() == ''
+        es_cesado = bool(row.get('es_cesado', False))
         dias_x_prog  = safe_float(row.get('Dias_x_prog') or row.get('Días Pendientes de programación'))
 
         # Cesados 2025: avance 100%, sin alertas
@@ -261,12 +268,18 @@ def construir_consolidado(df_meta, df_visma):
     return df
 
 def filtrar_usuario(df, user_name, pa):
-    if user_name not in pa: return df
+    # Siempre excluir cesados de la vista (sin área)
+    col_area = next((c for c in ['AREA','Area'] if c in df.columns), None)
+    if col_area:
+        df_activos = df[df[col_area].notna() & (df[col_area].astype(str).str.strip() != '')].copy()
+    else:
+        df_activos = df.copy()
+    # Filtrar por jerarquía
+    if user_name not in pa: return df_activos
     info = pa[user_name]
-    if info['role']=='Gerente' or not info.get('areas'): return df
-    col = next((c for c in ['AREA','Area'] if c in df.columns), None)
-    if col: return df[df[col].isin(info['areas'])].copy()
-    return df
+    if info['role']=='Gerente' or not info.get('areas'): return df_activos
+    if col_area: return df_activos[df_activos[col_area].isin(info['areas'])].copy()
+    return df_activos
 
 def emo(e):
     return {'VENCIDO':'🔴 Vencido','CRITICO':'🟠 Crítico','EN_RIESGO':'🟡 En riesgo',
@@ -428,10 +441,18 @@ def main():
             df_at = df[cond].copy()
             if not df_at.empty:
                 df_at = df_at.sort_values('Vencidos_real', ascending=False)
-                cols_s = [c for c in [col_nom,col_area,col_jefe,'Vencidos_real',
-                                       col_pend,col_dp,'Fecha_limite','Estado']
+                cols_s = [c for c in [col_nom,col_area,col_jefe,
+                                       col_pend,'Truncos',col_meta,'Prog_visma',
+                                       col_dp,'Fecha_limite','Estado']
                           if c and c in df_at.columns]
                 show = df_at[cols_s].head(20).copy()
+                rename_d = {
+                    col_nom:'Nombre', col_area:'Área', col_jefe:'Jefe',
+                    col_pend:'Pendientes', col_meta:'Meta 2026',
+                    'Prog_visma':'Días programados', col_dp:'Días x prog.',
+                    'Fecha_limite':'Fecha límite'
+                }
+                show = show.rename(columns={k:v for k,v in rename_d.items() if k and k in show.columns})
                 show['Estado'] = show['Estado'].apply(emo)
                 st.dataframe(show, use_container_width=True, hide_index=True)
             else:
@@ -459,9 +480,17 @@ def main():
 
         st.caption(f"{len(df_f):,} de {len(df):,} registros")
         cols_t = [c for c in ['Legajo',col_nom,col_cat,col_area,col_jefe,'Administrador',
-                               'Vencidos_real',col_pend,col_meta,'Prog_visma','Pct_avance',
+                               col_pend,'Truncos',col_meta,'Prog_visma','Pct_avance',
                                col_dp,'Fecha_limite','Estado'] if c and c in df_f.columns]
         show = df_f[cols_t].copy()
+        # Renombrar columnas para display
+        rename_display = {
+            col_nom: 'Nombre', col_cat: 'Categoría', col_area: 'Área',
+            col_jefe: 'Jefe', col_pend: 'Pendientes', col_meta: 'Meta 2026',
+            'Prog_visma': 'Días programados', 'Pct_avance': '% Avance',
+            col_dp: 'Días x prog.', 'Fecha_limite': 'Fecha límite'
+        }
+        show = show.rename(columns={k:v for k,v in rename_display.items() if k and k in show.columns})
         if 'Estado' in show.columns: show['Estado'] = show['Estado'].apply(emo)
         st.dataframe(show, use_container_width=True, hide_index=True, height=500)
         st.download_button("⬇️ Descargar Excel", to_excel(df_f),
