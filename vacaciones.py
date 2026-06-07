@@ -173,8 +173,19 @@ def cargar_meta():
 
 @st.cache_data(ttl=3600)
 def cargar_visma():
+    # Buscar el archivo con cualquiera de sus nombres posibles
+    import os
+    nombres_visma = [
+        'Vacaciones_-_Dias_solicitados__28_.xlsx',
+        'Vacaciones_Historial.xlsx',
+        'Vacaciones_Dias_solicitados.xlsx',
+        'vacaciones_historial.xlsx',
+    ]
+    archivo_visma = next((n for n in nombres_visma if os.path.exists(n)), None)
+    if not archivo_visma:
+        return pd.DataFrame()
     try:
-        v = pd.read_excel('Vacaciones_-_Dias_solicitados__28_.xlsx', header=2)
+        v = pd.read_excel(archivo_visma, header=2)
         v.columns = ['Legajo','_x','Apellidos y Nombre','Estado','Fecha desde',
                      'Fecha hasta','Cant dias','_2','Tipo dia','Periodo',
                      'Origen','Estado aus','Anticipo']
@@ -184,6 +195,29 @@ def cargar_visma():
         v['Fecha hasta'] = pd.to_datetime(v['Fecha hasta'], dayfirst=True, errors='coerce')
         v['Cant dias']   = pd.to_numeric(v['Cant dias'], errors='coerce').fillna(0)
         return v[v['Fecha desde'].notna()].copy()
+    except:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=3600)
+def cargar_altas_bajas():
+    import os
+    nombres_ab = [
+        'Altas_y_bajas_de_colaboradores.xlsx',
+        'Altas_y_bajas_de_colaboradores__27_.xlsx',
+        'altas_bajas.xlsx',
+    ]
+    archivo = next((n for n in nombres_ab if os.path.exists(n)), None)
+    if not archivo:
+        return pd.DataFrame()
+    try:
+        df = pd.read_excel(archivo, header=1)
+        df.columns = ['Legajo','Apellidos','Nombres','Estado','Fecha_alta',
+                      'Fecha_baja','Causa','Salario','Vacaciones','Indemnizacion','Real']
+        df = df[df['Legajo'].notna() & (df['Legajo'] != 'Legajo')].copy()
+        df['Legajo']     = df['Legajo'].astype(str).str.replace('.0','',regex=False).str.strip()
+        df['Fecha_baja'] = pd.to_datetime(df['Fecha_baja'], dayfirst=True, errors='coerce')
+        df['Fecha_alta'] = pd.to_datetime(df['Fecha_alta'], dayfirst=True, errors='coerce')
+        return df
     except:
         return pd.DataFrame()
 
@@ -204,9 +238,33 @@ def fecha_limite(comentario):
         except: pass
     return None
 
-def construir_consolidado(df_meta, df_visma):
+def construir_consolidado(df_meta, df_visma, df_ab=None):
     hoy       = date.today()
     ignorados = get_ignorados()
+
+    # Identificar cesados y reingresos desde altas/bajas
+    cesados_2026   = set()  # cesaron en 2026 → meta al 100%
+    reingresos_2026= set()  # reingresaron en 2026 → sin meta este año
+
+    if df_ab is not None and not df_ab.empty:
+        # Cesados en 2026 con vacaciones liquidadas
+        bajas = df_ab[
+            (df_ab['Fecha_baja'].dt.year == 2026) &
+            (df_ab['Estado'] == 'Inactivo') &
+            (df_ab['Vacaciones'] == 'Si')
+        ]
+        cesados_2026 = set(bajas['Legajo'].unique())
+
+        # Reingresos: alta en 2026 Y tenían registro previo (Estado Activo ahora)
+        altas_2026 = df_ab[
+            (df_ab['Fecha_alta'].dt.year == 2026) &
+            (df_ab['Estado'] == 'Activo')
+        ]
+        # Solo los que tienen más de un registro = reingresantes
+        multi = df_ab.groupby('Legajo').size()
+        reingresos_2026 = set(altas_2026[
+            altas_2026['Legajo'].isin(multi[multi > 1].index)
+        ]['Legajo'].unique())
 
     df = df_meta.copy()
 
@@ -251,7 +309,8 @@ def construir_consolidado(df_meta, df_visma):
         meta      = safe_float(row.get(col_meta) if col_meta else None)
         prog      = safe_float(row.get('Prog_visma'))
         pend      = safe_float(row.get('Pendientes'))
-        es_ces    = bool(row.get('es_cesado', False))
+        es_ces    = bool(row.get('es_cesado', False)) or leg in cesados_2026
+        es_reingreso = leg in reingresos_2026
         cargo_v   = str(row.get('Cargo','') or '')
         es_dir    = es_direccion(cargo_v)
         fl        = fecha_limite(com)
@@ -265,7 +324,11 @@ def construir_consolidado(df_meta, df_visma):
         else:
             dias_x  = max(0, meta - prog)   # fallback: meta - lo programado
 
-        if es_ces:
+        if es_reingreso:
+            # Reingresó en 2026 — sin meta este año, no genera alertas
+            estado='SIN_SALDO'; venc=0; pct=0
+        elif es_ces:
+            # Cesó en 2026 con liquidación — meta al 100%
             estado='CUMPLIDO'; venc=0
         elif leg in ignorados:
             estado='IGNORADO'; venc=0
@@ -425,7 +488,8 @@ def main():
         st.error("No se encontro el archivo de datos. Sube META_2026_-_Abril.xlsx al repositorio.")
         return
 
-    df_full = construir_consolidado(df_meta, df_visma)
+    df_ab   = cargar_altas_bajas()
+    df_full = construir_consolidado(df_meta, df_visma, df_ab)
     df      = filtrar_usuario(df_full, user_name, pa)
     role    = pa.get(user_name, {}).get('role','RRHH')
 
