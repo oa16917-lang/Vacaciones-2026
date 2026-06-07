@@ -254,10 +254,16 @@ def construir_consolidado(df_meta, df_visma):
         es_ces    = bool(row.get('es_cesado', False))
         cargo_v   = str(row.get('Cargo','') or '')
         es_dir    = es_direccion(cargo_v)
-        dias_x    = safe_float(row.get('Dias_x_prog'))
         fl        = fecha_limite(com)
         dias_r    = (fl - hoy).days if fl else 999
         pct       = round(min(prog, meta)/meta*100,1) if meta>0 else 0
+        # dias_x: cuántos días aún debe gozar según el comentario vs lo que gozó en Visma
+        md_x      = re.search(r'DEBE GOZAR (\d+)', com.upper())
+        if md_x:
+            debia   = int(md_x.group(1))
+            dias_x  = max(0, debia - prog)  # lo que falta según Visma real
+        else:
+            dias_x  = max(0, meta - prog)   # fallback: meta - lo programado
 
         if es_ces:
             estado='CUMPLIDO'; venc=0
