@@ -270,13 +270,14 @@ def construir_consolidado(df_meta, df_visma):
             else:                        estado='AL_DIA'
         else:
             venc=0
-            if fl and fl<hoy and dias_x>0:
+            if fl and fl<hoy:
                 md = re.search(r'DEBE GOZAR (\d+)', com.upper())
-                dd = int(md.group(1)) if md else int(dias_x)
-                if prog < dd: venc = max(0, dd-prog)
-            # Fecha ya pasó Y tiene días sin programar → VENCIDO siempre
-            if fl and dias_r < 0 and dias_x > 0:   estado='VENCIDO'
-            elif venc>0:                            estado='VENCIDO'
+                if md:
+                    dd = int(md.group(1))
+                    # Solo vencido si prog (de Visma) es menor a días que debía gozar
+                    if prog < dd: venc = max(0, dd - prog)
+            # VENCIDO: solo cuando realmente tiene días sin gozar después de la fecha límite
+            if venc>0:                              estado='VENCIDO'
             elif fl and dias_r<=30 and dias_x>0:   estado='CRITICO'
             elif fl and dias_r<=90 and dias_x>0:   estado='EN_RIESGO'
             elif meta>0 and prog>=meta:             estado='CUMPLIDO'
@@ -465,8 +466,8 @@ def main():
         prog_ces = col_sum(df_ces, col_meta_full)
         prog_cap = prog_act + prog_ces
         pct      = round(prog_cap/meta_t*100,1) if meta_t>0 else 0
-        # Vencidos: usar df completo filtrado por usuario (igual que Centro de Alertas)
-        venc_n   = int((df['Vencidos_real']>0).sum()) if 'Vencidos_real' in df.columns else 0
+        # Vencidos: mismo criterio que Centro de Alertas — Estado == VENCIDO
+        venc_n   = int((df['Estado']=='VENCIDO').sum()) if 'Estado' in df.columns else 0
         dp       = int(col_sum(df, col_dp))
 
         c1,c2,c3,c4,c5 = st.columns(5)
