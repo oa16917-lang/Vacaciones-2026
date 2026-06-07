@@ -2,6 +2,7 @@
 vacaciones.py — Gestión de Vacaciones Apparka
 """
 import streamlit as st
+import math
 import pandas as pd
 import json, re, calendar
 from datetime import date, datetime, timedelta
@@ -265,6 +266,9 @@ def construir_consolidado(df_meta, df_visma):
     df['Fecha_limite']  = fechas_l
     df['Dias_restantes']= dias_rest
     df['Pct_avance']    = pcts
+    # Redondear Truncos hacia arriba
+    if 'Truncos' in df.columns:
+        df['Truncos'] = df['Truncos'].apply(lambda x: math.ceil(safe_float(x)))
     return df
 
 def filtrar_usuario(df, user_name, pa):
@@ -411,8 +415,11 @@ def main():
     if pagina == "📊 Dashboard":
         st.markdown("## Dashboard — Vacaciones")
 
-        meta_t   = col_sum(df, col_meta)
-        prog_cap = cap_sum(df, 'Prog_visma', col_meta)
+        # Meta total = todos incluidos cesados (df_full)
+        # KPIs de avance/vencidos = solo activos en mi vista (df)
+        col_meta_full = next((c for c in ['Meta2026'] if c in df_full.columns), None)
+        meta_t   = col_sum(df_full, col_meta_full)  # 41,962 — incluye cesados
+        prog_cap = cap_sum(df, 'Prog_visma', col_meta)  # solo activos en vista
         pct      = round(prog_cap / meta_t * 100, 1) if meta_t > 0 else 0
         venc_n   = int((df['Vencidos_real'] > 0).sum()) if 'Vencidos_real' in df.columns else 0
         dp       = int(col_sum(df, col_dp))
@@ -478,7 +485,18 @@ def main():
         if f_est !='Todos' and 'Estado' in df_f.columns: df_f=df_f[df_f['Estado']==f_est]
         if f_jefe!='Todos' and col_jefe: df_f=df_f[df_f[col_jefe]==f_jefe]
 
-        st.caption(f"{len(df_f):,} de {len(df):,} registros")
+        # Excluir colaboradores que ya cumplieron su meta (días x prog = 0)
+        col_dp_check = next((c for c in ['Dias_x_prog','Días Pendientes de programación']
+                              if c in df_f.columns), None)
+        col_meta_check = next((c for c in ['Meta2026'] if c in df_f.columns), None)
+        if col_dp_check and col_meta_check:
+            # Mostrar solo: tiene meta Y tiene días pendientes por programar
+            mask_pendiente = (
+                (df_f[col_meta_check].apply(safe_float) > 0) &
+                (df_f[col_dp_check].apply(safe_float) > 0)
+            )
+            df_f = df_f[mask_pendiente].copy()
+        st.caption(f"{len(df_f):,} con días por programar de {len(df):,} colaboradores")
         cols_t = [c for c in ['Legajo',col_nom,col_cat,col_area,col_jefe,'Administrador',
                                col_pend,'Truncos',col_meta,'Prog_visma','Pct_avance',
                                col_dp,'Fecha_limite','Estado'] if c and c in df_f.columns]
