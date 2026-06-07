@@ -662,15 +662,15 @@ def main():
         st.markdown("## Resumen Ejecutivo por Gerencia")
         grp = col_ger if col_ger else col_jefe
         if grp and grp in df.columns:
-            rows = []
-            for gv in sorted(df[grp].dropna().unique()):
-                gd   = df[df[grp]==gv]
+            CATS = ['OPERATIVOS','SUPERVISORES','BACK OFFICE']
+
+            def fila_grupo(gd, label, nivel='gerencia'):
                 meta = col_sum(gd, col_meta)
                 prog = col_sum(gd, 'Prog_visma')
                 pgc  = cap_sum(gd, 'Prog_visma', col_meta)
                 pct2 = round(pgc/meta*100,1) if meta>0 else 0
-                rows.append({
-                    grp:                gv,
+                return {
+                    'Nivel':            label,
                     'HC':               f"{len(gd):,}",
                     'Vencidos':         int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0,
                     'Críticos':         int((gd['Estado']=='CRITICO').sum()) if 'Estado' in gd.columns else 0,
@@ -679,13 +679,77 @@ def main():
                     'Días programados': f"{int(prog):,}",
                     '% Avance':         f"{pct2}%",
                     'Días x prog.':     f"{int(col_sum(gd, col_dp)):,}",
-                })
-            gdf = pd.DataFrame(rows)
-            # Estilo con colores Apparka en header
-            st.dataframe(gdf, use_container_width=True, hide_index=True)
-            st.download_button("⬇️ Descargar resumen", to_excel(gdf),
-                file_name=f"resumen_{date.today()}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                }
+
+            # Tabla expandible por gerencia con categorías
+            all_rows_export = []
+            for gv in sorted(df[grp].dropna().unique()):
+                gd = df[df[grp]==gv]
+                meta_g = col_sum(gd, col_meta)
+                prog_g = col_sum(gd, 'Prog_visma')
+                pgc_g  = cap_sum(gd, 'Prog_visma', col_meta)
+                pct_g  = round(pgc_g/meta_g*100,1) if meta_g>0 else 0
+                dp_g   = int(col_sum(gd, col_dp))
+                venc_g = int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0
+
+                # Header de gerencia con colores Apparka
+                col_a, col_b, col_c, col_d, col_e, col_f = st.columns([3,1,1.2,1.4,1,1.4])
+                col_a.markdown(f"<div style='background:{AZUL};color:white;padding:6px 10px;"
+                               f"border-radius:6px;font-weight:600;font-size:13px'>{gv}</div>",
+                               unsafe_allow_html=True)
+                col_b.markdown(f"<div style='text-align:right;font-size:12px'><b>HC</b><br>{len(gd):,}</div>",
+                               unsafe_allow_html=True)
+                col_c.markdown(f"<div style='text-align:right;font-size:12px'><b>Meta 2026</b><br>{int(meta_g):,}</div>",
+                               unsafe_allow_html=True)
+                col_d.markdown(f"<div style='text-align:right;font-size:12px'><b>Días prog.</b><br>{int(prog_g):,}</div>",
+                               unsafe_allow_html=True)
+                col_e.markdown(f"<div style='text-align:right;font-size:12px;color:{FUCSIA}'>"
+                               f"<b>% Avance</b><br><b>{pct_g}%</b></div>",
+                               unsafe_allow_html=True)
+                col_f.markdown(f"<div style='text-align:right;font-size:12px;color:{MORADO}'>"
+                               f"<b>Días x prog.</b><br><b>{dp_g:,}</b></div>",
+                               unsafe_allow_html=True)
+
+                # Categorías debajo
+                if col_cat and col_cat in gd.columns:
+                    for cat in CATS:
+                        gc = gd[gd[col_cat].str.upper()==cat] if col_cat in gd.columns else pd.DataFrame()
+                        if gc.empty: continue
+                        meta_c = col_sum(gc, col_meta)
+                        prog_c = col_sum(gc, 'Prog_visma')
+                        pgc_c  = cap_sum(gc, 'Prog_visma', col_meta)
+                        pct_c  = round(pgc_c/meta_c*100,1) if meta_c>0 else 0
+                        dp_c   = int(col_sum(gc, col_dp))
+                        ca,cb,cc,cd,ce,cf = st.columns([3,1,1.2,1.4,1,1.4])
+                        cat_color = AZUL_L
+                        ca.markdown(f"<div style='background:{cat_color};color:{AZUL};padding:4px 10px 4px 24px;"
+                                    f"border-radius:4px;font-size:12px'>↳ {cat.title()}</div>",
+                                    unsafe_allow_html=True)
+                        cb.markdown(f"<div style='text-align:right;font-size:12px;color:#666'>{len(gc):,}</div>",
+                                    unsafe_allow_html=True)
+                        cc.markdown(f"<div style='text-align:right;font-size:12px;color:#666'>{int(meta_c):,}</div>",
+                                    unsafe_allow_html=True)
+                        cd.markdown(f"<div style='text-align:right;font-size:12px;color:#666'>{int(prog_c):,}</div>",
+                                    unsafe_allow_html=True)
+                        ce.markdown(f"<div style='text-align:right;font-size:12px;color:{FUCSIA}'>{pct_c}%</div>",
+                                    unsafe_allow_html=True)
+                        cf.markdown(f"<div style='text-align:right;font-size:12px;color:{MORADO}'>{dp_c:,}</div>",
+                                    unsafe_allow_html=True)
+                        all_rows_export.append({
+                            'Gerencia': gv, 'Categoría': cat.title(),
+                            'HC': len(gc), 'Meta 2026': int(meta_c),
+                            'Días programados': int(prog_c),
+                            '% Avance': f"{pct_c}%", 'Días x prog.': dp_c,
+                            'Vencidos': int((gc['Vencidos_real']>0).sum()) if 'Vencidos_real' in gc.columns else 0,
+                        })
+
+                st.markdown("<hr style='margin:4px 0;border-color:#f0efe9'>", unsafe_allow_html=True)
+
+            if all_rows_export:
+                exp_df = pd.DataFrame(all_rows_export)
+                st.download_button("⬇️ Descargar resumen completo", to_excel(exp_df),
+                    file_name=f"resumen_categorias_{date.today()}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     # ── HISTORIAL ──────────────────────────────────────────────────────────────
     elif pagina == "📂 Historial de Vacaciones":
