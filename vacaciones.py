@@ -176,6 +176,7 @@ def cargar_visma():
     # Buscar el archivo con cualquiera de sus nombres posibles
     import os
     nombres_visma = [
+        'vacaciones.xlsx',
         'Vacaciones_-_Dias_solicitados__28_.xlsx',
         'Vacaciones_Historial.xlsx',
         'Vacaciones_Dias_solicitados.xlsx',
