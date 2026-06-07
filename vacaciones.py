@@ -95,20 +95,27 @@ def check_auth():
 # ── Carga ──────────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
 def cargar_meta():
-    rename = {
-        'Apellidos y Nombres':'Nombre', 'Area':'AREA', 'Sede':'SEDE',
-        'META 2025':'Meta2026', 'Meta SE':'Meta2026',
-        'Programación':'Prog_meta',
-        'Días Pendientes de programación':'Dias_x_prog',
-        'COMENTARIO PARA EVITAR INDEMNIZACION':'Comentario_ind',
-        'COMENTARIOS PARA CUMPLIMIENTO META 2026':'Comentario_meta',
-    }
     for fn, sh in [('CONSOLIDADO_GENERADO.xlsx',None),
                    ('META_2026_-_Abril.xlsx','Consolidado')]:
         try:
             df = pd.read_excel(fn, sheet_name=sh)
             if len(df):
-                df = df.rename(columns={k:v for k,v in rename.items() if k in df.columns})
+                # Renombrar META 2025 → Meta2026 (columna V, la meta real de días a gozar)
+                # Hacerlo uno por uno para garantizar el orden correcto
+                col_map = {}
+                if 'META 2025' in df.columns:      col_map['META 2025'] = 'Meta2026'
+                elif 'Meta SE' in df.columns:       col_map['Meta SE']   = 'Meta2026'
+                if 'Apellidos y Nombres' in df.columns: col_map['Apellidos y Nombres'] = 'Nombre'
+                if 'Area' in df.columns:            col_map['Area']  = 'AREA'
+                if 'Sede' in df.columns:            col_map['Sede']  = 'SEDE'
+                if 'Programación' in df.columns:    col_map['Programación'] = 'Prog_meta'
+                if 'Días Pendientes de programación' in df.columns:
+                    col_map['Días Pendientes de programación'] = 'Dias_x_prog'
+                if 'COMENTARIO PARA EVITAR INDEMNIZACION' in df.columns:
+                    col_map['COMENTARIO PARA EVITAR INDEMNIZACION'] = 'Comentario_ind'
+                if 'COMENTARIOS PARA CUMPLIMIENTO META 2026' in df.columns:
+                    col_map['COMENTARIOS PARA CUMPLIMIENTO META 2026'] = 'Comentario_meta'
+                df = df.rename(columns=col_map)
                 df['Legajo'] = df['Legajo'].astype(str).str.replace('.0','',regex=False).str.strip()
                 ca = next((c for c in ['AREA','Area'] if c in df.columns), None)
                 if ca:
@@ -191,7 +198,7 @@ def construir_consolidado(df_meta, df_visma):
             if m not in df.columns: df[m] = 0.0
         df['Prog_visma'] = df[[m for m in MESES if m in df.columns]].sum(axis=1)
 
-    col_meta = next((c for c in ['Meta2026','Meta SE','META 2025'] if c in df.columns), None)
+    col_meta = next((c for c in ['Meta2026'] if c in df.columns and df[c].notna().any()), None)
 
     estados, vencidos_r, fechas_l, dias_rest, pcts = [], [], [], [], []
     for _, row in df.iterrows():
@@ -340,7 +347,7 @@ def main():
     df      = filtrar_usuario(df_full, user_name, pa)
     role    = pa.get(user_name, {}).get('role','RRHH')
 
-    col_meta = next((c for c in ['Meta2026','Meta SE','META 2025'] if c in df.columns), None)
+    col_meta = next((c for c in ['Meta2026'] if c in df.columns and df[c].notna().any()), None)
     col_pend = 'Pendientes' if 'Pendientes' in df.columns else None
     col_dp   = next((c for c in ['Dias_x_prog','Días Pendientes de programación'] if c in df.columns), None)
     col_area = next((c for c in ['AREA','Area'] if c in df.columns), None)
@@ -375,11 +382,16 @@ def main():
         dp       = int(col_sum(df, col_dp))
 
         c1,c2,c3,c4,c5 = st.columns(5)
-        c1.metric("Meta 2026 (días)",            f"{int(meta_t):,}")
-        c2.metric("N° Colaboradores",            f"{len(df):,}")
-        c3.metric("N° Colab. con vac. vencidas", venc_n)
-        c4.metric("% Avance meta 2026",          f"{pct}%")
-        c5.metric("Cantidad días por programar", f"{dp:,}")
+        with c1:
+            st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>Meta 2026 (días)</div><div style='font-size:26px;font-weight:700;color:{AZUL};text-align:center'>{int(meta_t):,}</div>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>N° Colaboradores</div><div style='font-size:26px;font-weight:700;color:{AZUL};text-align:center'>{len(df):,}</div>", unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>N° Colab. vac. vencidas</div><div style='font-size:26px;font-weight:700;color:{FUCSIA};text-align:center'>{venc_n}</div>", unsafe_allow_html=True)
+        with c4:
+            st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>% Avance meta 2026</div><div style='font-size:26px;font-weight:700;color:{AZUL};text-align:center'>{pct}%</div>", unsafe_allow_html=True)
+        with c5:
+            st.markdown(f"<div style='font-size:11px;color:#6b6860;text-align:center'>Días por programar</div><div style='font-size:26px;font-weight:700;color:{MORADO};text-align:center'>{dp:,}</div>", unsafe_allow_html=True)
 
         st.markdown("---")
         st.markdown("### Colaboradores que requieren atención")
