@@ -775,7 +775,7 @@ def main():
         st.markdown("## Dashboard — Vacaciones")
 
         # KPIs scoped al usuario — si es RRHH ve empresa completa, si es Jefe/Admin ve su area
-        is_rrhh = (role == 'RRHH')
+        is_rrhh = (role in ('RRHH', 'Gerente'))  # Gerente ve empresa completa igual que RRHH
         df_scope = df_full if is_rrhh else df
 
         col_meta_scope = next((c for c in ['Meta2026'] if c in df_scope.columns), None)
@@ -841,35 +841,37 @@ def main():
             # Jefe          -> por Administrador
             # Administrador -> resumen propio
             col_admin = 'Administrador' if 'Administrador' in df.columns else None
-            if role in ('RRHH', 'Gerente', 'SubGerente'):
-                # Si hay columna Jefe con datos, agrupar por Jefe
-                # Si no hay Jefes (areas sin nivel intermedio), agrupar por Administrador
-                jefes_disponibles = df['Jefe'].dropna().unique() if 'Jefe' in df.columns else []
-                admins_disponibles = df['Administrador'].dropna().unique() if 'Administrador' in df.columns else []
-                if len(jefes_disponibles) > 0:
-                    grp_resumen    = col_jefe
-                    titulo_resumen = "### Resumen por Jefe"
-                    lbl_col        = 'Jefe'
-                elif len(admins_disponibles) > 0:
-                    grp_resumen    = 'Administrador'
-                    titulo_resumen = "### Resumen por Administrador"
-                    lbl_col        = 'Administrador'
-                else:
-                    grp_resumen    = col_jefe
-                    titulo_resumen = "### Resumen por Jefe"
-                    lbl_col        = 'Jefe'
-            elif role == 'Jefe' and col_admin:
-                grp_resumen    = col_admin
-                titulo_resumen = "### Resumen por Administrador"
-                lbl_col        = 'Administrador'
-            elif role == 'Administrador':
+            # Buscar la primera columna jerarquica con datos reales en el df del usuario
+            def mejor_col_resumen(candidatos):
+                for c in candidatos:
+                    if c and c in df.columns and df[c].notna().any():
+                        return c
+                return None
+
+            if role == 'Administrador':
                 grp_resumen    = None
                 titulo_resumen = "### Resumen de tu area"
                 lbl_col        = None
+            elif role == 'Jefe':
+                grp_resumen    = mejor_col_resumen(['Administrador', col_area])
+                lbl_col        = grp_resumen
+                titulo_resumen = "### Resumen por Administrador" if grp_resumen == 'Administrador' else "### Resumen por Area"
             else:
-                grp_resumen    = col_jefe
-                titulo_resumen = "### Resumen por Jefe"
-                lbl_col        = 'Jefe'
+                # RRHH, Gerente, SubGerente: nivel inmediato inferior con datos
+                grp_resumen = mejor_col_resumen(['Jefe', 'Administrador', col_area])
+                if grp_resumen == 'Jefe':
+                    titulo_resumen = "### Resumen por Jefe"
+                    lbl_col        = 'Jefe'
+                elif grp_resumen == 'Administrador':
+                    titulo_resumen = "### Resumen por Administrador"
+                    lbl_col        = 'Administrador'
+                elif grp_resumen == col_area:
+                    titulo_resumen = "### Resumen por Area"
+                    lbl_col        = col_area
+                else:
+                    grp_resumen    = None
+                    titulo_resumen = "### Resumen"
+                    lbl_col        = None
 
             st.markdown(titulo_resumen)
             if grp_resumen and grp_resumen in df.columns and 'Estado' in df.columns:
@@ -1036,16 +1038,21 @@ def main():
         st.markdown("## Resumen Ejecutivo por Gerencia")
         # Para RRHH/Gerente: agrupar por Gerente o Sub_Gerente
         # Para SubGerente/Jefe/Admin: agrupar por Jefe (o Administrador si no hay Jefe)
+        # Determinar columna de agrupacion segun rol
+        def primera_col_con_datos(candidatos):
+            for c in candidatos:
+                if c and c in df.columns and df[c].notna().any():
+                    return c
+            return None
+
         if role in ('RRHH', 'Gerente'):
-            grp = col_ger if col_ger else col_jefe
+            grp = primera_col_con_datos(['Jefe', 'Sub_Gerente', 'Gerente', col_ger, col_jefe])
         elif role == 'SubGerente':
-            # Sus areas pueden no tener nivel Gerente, agrupar por Jefe o Admin
-            jefes_ej = df['Jefe'].dropna().unique() if 'Jefe' in df.columns else []
-            grp = 'Jefe' if len(jefes_ej) > 0 else ('Administrador' if 'Administrador' in df.columns else col_jefe)
+            grp = primera_col_con_datos(['Jefe', 'Administrador', col_area, col_jefe])
         elif role == 'Jefe':
-            grp = 'Administrador' if 'Administrador' in df.columns else col_jefe
+            grp = primera_col_con_datos(['Administrador', col_area, col_jefe])
         else:
-            grp = col_jefe
+            grp = primera_col_con_datos(['Administrador', col_area, col_jefe])
         if grp and grp in df.columns:
             CATS = ['OPERATIVOS','SUPERVISORES','BACK OFFICE']
 
