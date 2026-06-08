@@ -342,11 +342,44 @@ def cargar_area_sistema():
 
 @st.cache_data(ttl=86400)
 def cargar_jerarquia():
+    """Carga acceso_persona.json para autenticacion y roles de usuario."""
     try:
         with open('acceso_persona.json', encoding='utf-8') as f:
             return json.load(f)
     except:
         return {}
+
+@st.cache_data(ttl=3600)
+def cargar_tabla_jerarquia():
+    """
+    Carga jerarquia.csv con columnas: Gerente, Sub_Gerente, Jefe, Administrador.
+    Retorna DataFrame con combinaciones unicas Administrador -> {Gerente, SubGerente, Jefe}.
+    """
+    import os
+    nombres = ['jerarquia.csv', 'jerarquia.CSV']
+    archivo = next((n for n in nombres if os.path.exists(n)), None)
+    if not archivo:
+        return pd.DataFrame()
+    try:
+        df = pd.read_csv(archivo)
+        df.columns = [c.strip() for c in df.columns]
+        # Normalizar nombres de columna (puede venir Sub_Gerente o SubGerente)
+        rename = {}
+        for c in df.columns:
+            cl = c.lower().replace(' ','_').replace('-','_')
+            if 'gerente' in cl and 'sub' not in cl:   rename[c] = 'Gerente'
+            elif 'sub' in cl and 'gerente' in cl:      rename[c] = 'Sub_Gerente'
+            elif 'jefe' in cl:                         rename[c] = 'Jefe'
+            elif 'admin' in cl:                        rename[c] = 'Administrador'
+        df = df.rename(columns=rename)
+        # Limpiar valores
+        for col in ['Gerente','Sub_Gerente','Jefe','Administrador']:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.strip()
+                df[col] = df[col].replace({'nan':'', 'None':'', 'NaN':''})
+        return df.drop_duplicates()
+    except Exception as e:
+        return pd.DataFrame()
 
 # ── Logica vacaciones ──────────────────────────────────────────────────────────
 def fecha_limite(comentario):
@@ -357,7 +390,7 @@ def fecha_limite(comentario):
         except: pass
     return None
 
-def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None):
+def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=None):
     hoy       = date.today()
     ignorados = get_ignorados()
 
@@ -397,6 +430,61 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None):
             df[col_a] = df['Legajo'].map(area_map).fillna(df[col_a])
         if sede_map and col_s:
             df[col_s] = df['Legajo'].map(sede_map).fillna(df[col_s])
+
+    # Asignar columnas de jerarquia (Gerente, Sub_Gerente, Jefe, Administrador)
+    # desde jerarquia.csv usando el nombre del Administrador como clave de union
+    df_jer = cargar_tabla_jerarquia()
+    if not df_jer.empty and 'Administrador' in df_jer.columns:
+        col_a_adm = next((c for c in ['AREA','Area'] if c in df.columns), None)
+
+        # El jerarquia.csv tiene una fila por cada combinacion unica de Admin
+        # Construimos: Administrador -> {Gerente, Sub_Gerente, Jefe}
+        jer_uniq = df_jer[['Gerente','Sub_Gerente','Jefe','Administrador']].drop_duplicates('Administrador')
+
+        # La columna Administrador del dataframe se asigna por area usando area_para_administrador.json
+        # Si existe ese archivo, usarlo; sino, inferir desde jerarquia.csv y acceso_persona.json
+        import os
+        admin_from_area = {}  # {area -> nombre_administrador}
+
+        # Intentar leer area_para_administrador.json
+        for fn in ['area_para_administrador.json','área_para_administrador.json']:
+            if os.path.exists(fn):
+                try:
+                    with open(fn, encoding='utf-8') as f:
+                        admin_from_area = json.load(f)
+                    break
+                except:
+                    pass
+
+        # Si no hay JSON de area->admin, construirlo desde acceso_persona.json (pa)
+        if not admin_from_area and pa:
+            for uname, uinfo in pa.items():
+                if uinfo.get('role') == 'Administrador':
+                    nombre_adm = uinfo.get('nombre','')
+                    if not nombre_adm:
+                        legajo_adm = str(uinfo.get('legajo',''))
+                        col_n = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df.columns), None)
+                        if legajo_adm and 'Legajo' in df.columns and col_n:
+                            fila = df[df['Legajo'].astype(str)==legajo_adm]
+                            nombre_adm = fila.iloc[0][col_n] if not fila.empty else ''
+                    if nombre_adm:
+                        for ar in uinfo.get('areas', []):
+                            admin_from_area[ar] = nombre_adm
+
+        # Asignar Administrador al df por area
+        if admin_from_area and col_a_adm:
+            df['Administrador'] = df[col_a_adm].map(admin_from_area)
+        elif 'Administrador' not in df.columns:
+            df['Administrador'] = None
+
+        # Asignar Gerente, Sub_Gerente, Jefe desde jerarquia.csv usando Administrador como clave
+        if 'Administrador' in df.columns:
+            jer_map = jer_uniq.set_index('Administrador').to_dict('index')
+            df['Gerente']     = df['Administrador'].map(lambda a: jer_map.get(str(a),{}).get('Gerente',''))
+            df['Sub_Gerente'] = df['Administrador'].map(lambda a: jer_map.get(str(a),{}).get('Sub_Gerente',''))
+            df['Jefe']        = df['Administrador'].map(lambda a: jer_map.get(str(a),{}).get('Jefe',''))
+    elif 'Administrador' not in df.columns:
+        df['Administrador'] = None
 
     # Marcar cesados en 2026 desde altas/bajas en el flag es_cesado
     # (además de los que ya tienen es_cesado=True por area vacia en META)
@@ -512,17 +600,45 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None):
         )
     return df
 
-def filtrar_usuario(df, user_name, pa):
+def filtrar_usuario(df, user_email, pa):
     # Vista: solo activos con area
     col_a = next((c for c in ['AREA','Area'] if c in df.columns), None)
     if col_a:
         df_act = df[df[col_a].notna() & (df[col_a].astype(str).str.strip()!='')].copy()
     else:
         df_act = df.copy()
-    if user_name not in pa: return df_act
-    info = pa[user_name]
-    if info['role']=='Gerente' or not info.get('areas'): return df_act
-    if col_a: return df_act[df_act[col_a].isin(info['areas'])].copy()
+
+    if user_email not in pa: return df_act
+    info      = pa[user_email]
+    role      = info.get('role','RRHH')
+    nombre    = info.get('nombre','')  # nombre legible para comparar con columnas del df
+    areas     = info.get('areas', [])
+
+    # RRHH y Gerente ven todo
+    if role in ('RRHH', 'Gerente'):
+        return df_act
+
+    # SubGerente: filtrar por su nombre en la columna Sub_Gerente del CSV
+    if role == 'SubGerente' and nombre:
+        col_sg = 'Sub_Gerente' if 'Sub_Gerente' in df_act.columns else None
+        if col_sg:
+            return df_act[df_act[col_sg].astype(str).str.strip() == nombre].copy()
+
+    # Jefe: filtrar por su nombre en columna Jefe
+    if role == 'Jefe' and nombre:
+        col_j = 'Jefe' if 'Jefe' in df_act.columns else None
+        if col_j:
+            return df_act[df_act[col_j].astype(str).str.strip() == nombre].copy()
+
+    # Administrador: filtrar por areas asignadas en el JSON
+    if role == 'Administrador' and areas:
+        if col_a:
+            return df_act[df_act[col_a].isin(areas)].copy()
+
+    # Fallback: si tiene areas definidas, filtrar por ellas
+    if areas and col_a:
+        return df_act[df_act[col_a].isin(areas)].copy()
+
     return df_act
 
 def emo(e):
@@ -626,8 +742,9 @@ def render_calendario(df_visma, df_user, mes_num, anio=2026):
 def main():
     if not check_auth(): return
 
-    user_name = st.session_state.user_name
-    pa        = cargar_jerarquia()
+    user_name  = st.session_state.user_name   # nombre legible, ej: "Mayra Huerta"
+    user_email = st.session_state.get('user_email', '')  # email, ej: "mhuerta@apparka.pe"
+    pa         = cargar_jerarquia()
     df_meta   = cargar_meta()
     df_visma  = cargar_visma()
 
@@ -637,9 +754,9 @@ def main():
 
     df_ab        = cargar_altas_bajas()
     area_sistema = cargar_area_sistema()
-    df_full = construir_consolidado(df_meta, df_visma, df_ab, area_sistema)
-    df      = filtrar_usuario(df_full, user_name, pa)
-    role    = pa.get(user_name, {}).get('role','RRHH')
+    df_full = construir_consolidado(df_meta, df_visma, df_ab, area_sistema, pa)
+    df      = filtrar_usuario(df_full, user_email, pa)
+    role    = pa.get(user_email, {}).get('role','RRHH')
 
     col_meta = next((c for c in ['Meta2026'] if c in df.columns), None)
     col_pend = 'Pendientes' if 'Pendientes' in df.columns else None
@@ -658,7 +775,9 @@ def main():
         </div><hr style='border-color:rgba(255,255,255,0.2);margin:0 0 8px'>""",
             unsafe_allow_html=True)
         st.markdown(f"**{user_name}**")
-        st.caption(f"Rol: {role}")
+        roles_label = {'RRHH':'RRHH','Gerente':'Gerente','SubGerente':'Sub Gerente',
+                       'Jefe':'Jefe de Area','Administrador':'Administrador'}
+        st.caption(f"Rol: {roles_label.get(role, role)}")
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2)'>",unsafe_allow_html=True)
         pagina = st.radio("", [
             "📊 Dashboard","👥 Colaboradores por Área","🔔 Centro de Alertas",
