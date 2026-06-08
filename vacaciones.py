@@ -248,11 +248,11 @@ def construir_consolidado(df_meta, df_visma, df_ab=None):
     reingresos_2026= set()  # reingresaron en 2026 → sin meta este año
 
     if df_ab is not None and not df_ab.empty:
-        # Cesados en 2026 con vacaciones liquidadas
+        # Cesados en 2026: baja registrada en 2026, Estado Inactivo
+        # Incluimos independientemente del campo Vacaciones por si viene con valor distinto
         bajas = df_ab[
             (df_ab['Fecha_baja'].dt.year == 2026) &
-            (df_ab['Estado'] == 'Inactivo') &
-            (df_ab['Vacaciones'] == 'Si')
+            (df_ab['Estado'] == 'Inactivo')
         ]
         cesados_2026 = set(bajas['Legajo'].unique())
 
@@ -268,6 +268,14 @@ def construir_consolidado(df_meta, df_visma, df_ab=None):
         ]['Legajo'].unique())
 
     df = df_meta.copy()
+
+    # Marcar cesados en 2026 desde altas/bajas en el flag es_cesado
+    # (además de los que ya tienen es_cesado=True por area vacia en META)
+    if cesados_2026:
+        df['es_cesado'] = df.apply(
+            lambda r: bool(r.get('es_cesado', False)) or str(r['Legajo']) in cesados_2026,
+            axis=1
+        )
 
     if not df_visma.empty:
         # Usar Visma como fuente de verdad para días programados 2026
@@ -534,16 +542,24 @@ def main():
     if pagina == "📊 Dashboard":
         st.markdown("## Dashboard — Vacaciones")
 
-        # N° colaboradores = todos en el archivo (con nombre valido)
-        n_colab  = len(df_full)
-        col_meta_full = next((c for c in ['Meta2026'] if c in df_full.columns), None)
-        meta_t   = col_sum(df_full, col_meta_full)
+        # KPIs scoped al usuario — si es RRHH ve empresa completa, si es Jefe/Admin ve su area
+        is_rrhh = (role == 'RRHH')
+        df_scope = df_full if is_rrhh else df
+
+        col_meta_scope = next((c for c in ['Meta2026'] if c in df_scope.columns), None)
+        meta_t   = col_sum(df_scope, col_meta_scope)
+
+        # N colaboradores: para RRHH todos (incluyendo cesados), para otros solo activos
+        if is_rrhh:
+            n_colab = len(df_scope)
+        else:
+            n_colab = int((~df_scope['es_cesado']).sum()) if 'es_cesado' in df_scope.columns else len(df_scope)
 
         # Prog capeada: activos real + cesados al 100%
-        df_act   = df_full[~df_full['es_cesado']] if 'es_cesado' in df_full.columns else df_full
-        df_ces   = df_full[df_full['es_cesado']]  if 'es_cesado' in df_full.columns else pd.DataFrame()
-        prog_act = cap_sum(df_act, 'Prog_visma', col_meta_full)
-        prog_ces = col_sum(df_ces, col_meta_full)
+        df_act   = df_scope[~df_scope['es_cesado']] if 'es_cesado' in df_scope.columns else df_scope
+        df_ces   = df_scope[df_scope['es_cesado']]  if 'es_cesado' in df_scope.columns else pd.DataFrame()
+        prog_act = cap_sum(df_act, 'Prog_visma', col_meta_scope)
+        prog_ces = col_sum(df_ces, col_meta_scope)
         prog_cap = prog_act + prog_ces
         pct      = round(prog_cap/meta_t*100,1) if meta_t>0 else 0
         # Vencidos: mismo criterio que Centro de Alertas — Estado == VENCIDO
@@ -585,24 +601,50 @@ def main():
                         unsafe_allow_html=True)
 
         with col_r:
-            st.markdown("### Resumen por Jefe")
-            if col_jefe and 'Estado' in df.columns:
+            # Nivel de agrupacion para el resumen segun rol:
+            # RRHH/Gerente/SubGerente -> por Jefe
+            # Jefe -> por Administrador (sus reportes directos)
+            # Administrador -> resumen propio
+            col_admin = 'Administrador' if 'Administrador' in df.columns else None
+            if role == 'Jefe' and col_admin:
+                grp_resumen    = col_admin
+                titulo_resumen = "### Resumen por Administrador"
+                lbl_col        = 'Administrador'
+            elif role == 'Administrador':
+                grp_resumen    = None
+                titulo_resumen = "### Resumen de tu area"
+                lbl_col        = None
+            else:
+                grp_resumen    = col_jefe
+                titulo_resumen = "### Resumen por Jefe"
+                lbl_col        = 'Jefe'
+
+            st.markdown(titulo_resumen)
+            if grp_resumen and grp_resumen in df.columns and 'Estado' in df.columns:
                 rows_j = []
-                for jv in sorted(df[col_jefe].dropna().unique()):
-                    gd   = df[df[col_jefe]==jv]
+                for jv in sorted(df[grp_resumen].dropna().unique()):
+                    gd   = df[df[grp_resumen]==jv]
                     mj   = col_sum(gd, col_meta)
                     pj   = cap_sum(gd, 'Prog_visma', col_meta)
                     pctj = round(pj/mj*100,1) if mj>0 else 0
                     vj   = int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0
                     dpj  = int(col_sum(gd, col_dp))
-                    if dpj > 0:  # Solo jefes con dias pendientes
-                        rows_j.append({'Jefe':jv,'HC':len(gd),
-                                       '% Avance':f"{pctj}%",'Vencidos':vj,
-                                       'Días x prog.':int(dpj)})
+                    rows_j.append({lbl_col: jv, 'HC': len(gd),
+                                   '% Avance': f"{pctj}%", 'Vencidos': vj,
+                                   'Dias x prog.': int(dpj)})
                 if rows_j:
                     rj = pd.DataFrame(rows_j)
-                    rj = rj.sort_values('Días x prog.', ascending=False)
+                    rj = rj.sort_values('Dias x prog.', ascending=False)
                     st.dataframe(rj, use_container_width=True, hide_index=True, height=360)
+            elif role == 'Administrador' and 'Estado' in df.columns:
+                mj   = col_sum(df, col_meta)
+                pj   = cap_sum(df, 'Prog_visma', col_meta)
+                pctj = round(pj/mj*100,1) if mj>0 else 0
+                vj   = int((df['Vencidos_real']>0).sum()) if 'Vencidos_real' in df.columns else 0
+                dpj  = int(col_sum(df, col_dp))
+                rj   = pd.DataFrame([{'HC': len(df), '% Avance': f"{pctj}%",
+                                       'Vencidos': vj, 'Dias x prog.': int(dpj)}])
+                st.dataframe(rj, use_container_width=True, hide_index=True)
 
     # ── COLABORADORES POR AREA ─────────────────────────────────────────────────
     elif pagina == "👥 Colaboradores por Área":
@@ -615,7 +657,13 @@ def main():
         f_jefe = c5.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
 
         # Solo colaboradores con area Y con dias pendientes por programar
+        # Excluir cesados en 2026: su meta ya esta cumplida, Dias_x_prog=0
         df_f = df.copy()
+        # Excluir por Estado CUMPLIDO que incluye cesados y los que completaron meta
+        # Para la vista de "pendientes" solo interesan los que aun deben programar
+        # Los cesados del archivo altas/bajas tienen es_cesado=True O Estado=CUMPLIDO via legajo
+        if 'es_cesado' in df_f.columns:
+            df_f = df_f[~df_f['es_cesado']].copy()
         # Excluir sin area
         if col_area:
             df_f = df_f[df_f[col_area].notna() & (df_f[col_area].astype(str).str.strip()!='') & (df_f[col_area].astype(str).str.lower()!='none')]
