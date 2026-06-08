@@ -204,6 +204,7 @@ def cargar_visma():
 def cargar_altas_bajas():
     import os
     nombres_ab = [
+        'Altas y bajas de colaboradores.xlsx',      # nombre exacto en GitHub
         'Altas_y_bajas_de_colaboradores.xlsx',
         'Altas_y_bajas_de_colaboradores__27_.xlsx',
         'altas_bajas.xlsx',
