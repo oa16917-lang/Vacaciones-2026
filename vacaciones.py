@@ -431,60 +431,59 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
         if sede_map and col_s:
             df[col_s] = df['Legajo'].map(sede_map).fillna(df[col_s])
 
-    # Asignar columnas de jerarquia (Gerente, Sub_Gerente, Jefe, Administrador)
-    # desde jerarquia.csv usando el nombre del Administrador como clave de union
-    df_jer = cargar_tabla_jerarquia()
-    if not df_jer.empty and 'Administrador' in df_jer.columns:
-        col_a_adm = next((c for c in ['AREA','Area'] if c in df.columns), None)
+    # Construir columnas de jerarquia desde acceso_persona.json y jerarquia.csv
+    # Estrategia: area -> {Administrador, Jefe, Sub_Gerente, Gerente}
+    import os
+    col_a_adm = next((c for c in ['AREA','Area'] if c in df.columns), None)
 
-        # El jerarquia.csv tiene una fila por cada combinacion unica de Admin
-        # Construimos: Administrador -> {Gerente, Sub_Gerente, Jefe}
-        jer_uniq = df_jer[['Gerente','Sub_Gerente','Jefe','Administrador']].drop_duplicates('Administrador')
+    # Mapas area -> persona por nivel (construidos desde acceso_persona.json)
+    area_to_admin   = {}  # area -> nombre Administrador
+    area_to_jefe    = {}  # area -> nombre Jefe
+    area_to_subger  = {}  # area -> nombre Sub_Gerente
+    area_to_gerente = {}  # area -> nombre Gerente
 
-        # La columna Administrador del dataframe se asigna por area usando area_para_administrador.json
-        # Si existe ese archivo, usarlo; sino, inferir desde jerarquia.csv y acceso_persona.json
-        import os
-        admin_from_area = {}  # {area -> nombre_administrador}
+    if pa:
+        # Administradores: sus areas directas
+        for email, uinfo in pa.items():
+            nombre = uinfo.get('nombre','')
+            if not nombre: continue
+            role_u = uinfo.get('role','')
+            for ar in uinfo.get('areas',[]):
+                if not ar or str(ar) in ('nan','None','NaN'): continue
+                if role_u == 'Administrador':
+                    area_to_admin[ar] = nombre
+                elif role_u == 'Jefe':
+                    area_to_jefe[ar] = nombre
+                elif role_u == 'SubGerente':
+                    area_to_subger[ar] = nombre
+                elif role_u == 'Gerente':
+                    area_to_gerente[ar] = nombre
 
-        # Intentar leer area_para_administrador.json
-        for fn in ['area_para_administrador.json','área_para_administrador.json']:
-            if os.path.exists(fn):
-                try:
-                    with open(fn, encoding='utf-8') as f:
-                        admin_from_area = json.load(f)
-                    break
-                except:
-                    pass
+        # Para areas que tienen Admin pero no Jefe/SubGerente,
+        # completar desde jerarquia.csv usando Admin como puente
+        df_jer = cargar_tabla_jerarquia()
+        if not df_jer.empty:
+            jer_uniq = df_jer[['Gerente','Sub_Gerente','Jefe','Administrador']].drop_duplicates('Administrador')
+            jer_map  = jer_uniq.set_index('Administrador').to_dict('index')
+            for ar, adm in area_to_admin.items():
+                entry = jer_map.get(adm, {})
+                if ar not in area_to_jefe    and entry.get('Jefe'):
+                    area_to_jefe[ar]    = entry['Jefe']
+                if ar not in area_to_subger  and entry.get('Sub_Gerente'):
+                    area_to_subger[ar]  = entry['Sub_Gerente']
+                if ar not in area_to_gerente and entry.get('Gerente'):
+                    area_to_gerente[ar] = entry['Gerente']
 
-        # Si no hay JSON de area->admin, construirlo desde acceso_persona.json (pa)
-        if not admin_from_area and pa:
-            for uname, uinfo in pa.items():
-                if uinfo.get('role') == 'Administrador':
-                    nombre_adm = uinfo.get('nombre','')
-                    if not nombre_adm:
-                        legajo_adm = str(uinfo.get('legajo',''))
-                        col_n = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df.columns), None)
-                        if legajo_adm and 'Legajo' in df.columns and col_n:
-                            fila = df[df['Legajo'].astype(str)==legajo_adm]
-                            nombre_adm = fila.iloc[0][col_n] if not fila.empty else ''
-                    if nombre_adm:
-                        for ar in uinfo.get('areas', []):
-                            admin_from_area[ar] = nombre_adm
-
-        # Asignar Administrador al df por area
-        if admin_from_area and col_a_adm:
-            df['Administrador'] = df[col_a_adm].map(admin_from_area)
-        elif 'Administrador' not in df.columns:
-            df['Administrador'] = None
-
-        # Asignar Gerente, Sub_Gerente, Jefe desde jerarquia.csv usando Administrador como clave
-        if 'Administrador' in df.columns:
-            jer_map = jer_uniq.set_index('Administrador').to_dict('index')
-            df['Gerente']     = df['Administrador'].map(lambda a: jer_map.get(str(a),{}).get('Gerente',''))
-            df['Sub_Gerente'] = df['Administrador'].map(lambda a: jer_map.get(str(a),{}).get('Sub_Gerente',''))
-            df['Jefe']        = df['Administrador'].map(lambda a: jer_map.get(str(a),{}).get('Jefe',''))
-    elif 'Administrador' not in df.columns:
-        df['Administrador'] = None
+    # Asignar columnas al dataframe
+    if col_a_adm:
+        df['Administrador'] = df[col_a_adm].map(area_to_admin)
+        df['Jefe']          = df[col_a_adm].map(area_to_jefe)
+        df['Sub_Gerente']   = df[col_a_adm].map(area_to_subger)
+        df['Gerente']       = df[col_a_adm].map(area_to_gerente)
+    else:
+        for col in ['Administrador','Jefe','Sub_Gerente','Gerente']:
+            if col not in df.columns:
+                df[col] = None
 
     # Marcar cesados en 2026 desde altas/bajas en el flag es_cesado
     # (además de los que ya tienen es_cesado=True por area vacia en META)
@@ -609,37 +608,21 @@ def filtrar_usuario(df, user_email, pa):
         df_act = df.copy()
 
     if user_email not in pa: return df_act
-    info      = pa[user_email]
-    role      = info.get('role','RRHH')
-    nombre    = info.get('nombre','')  # nombre legible para comparar con columnas del df
-    areas     = info.get('areas', [])
+    info  = pa[user_email]
+    role  = info.get('role', 'RRHH')
+    areas = [a for a in info.get('areas', []) if a and str(a) not in ('nan','None','NaN')]
 
     # RRHH y Gerente ven todo
     if role in ('RRHH', 'Gerente'):
         return df_act
 
-    # SubGerente: filtrar por su nombre en la columna Sub_Gerente del CSV
-    if role == 'SubGerente' and nombre:
-        col_sg = 'Sub_Gerente' if 'Sub_Gerente' in df_act.columns else None
-        if col_sg:
-            return df_act[df_act[col_sg].astype(str).str.strip() == nombre].copy()
-
-    # Jefe: filtrar por su nombre en columna Jefe
-    if role == 'Jefe' and nombre:
-        col_j = 'Jefe' if 'Jefe' in df_act.columns else None
-        if col_j:
-            return df_act[df_act[col_j].astype(str).str.strip() == nombre].copy()
-
-    # Administrador: filtrar por areas asignadas en el JSON
-    if role == 'Administrador' and areas:
-        if col_a:
-            return df_act[df_act[col_a].isin(areas)].copy()
-
-    # Fallback: si tiene areas definidas, filtrar por ellas
+    # Todos los demas (SubGerente, Jefe, Administrador): filtrar por areas del JSON
+    # Las areas en el JSON ya estan correctamente asignadas por nivel jerarquico
     if areas and col_a:
         return df_act[df_act[col_a].isin(areas)].copy()
 
-    return df_act
+    # Si no tiene areas definidas, mostrar vacio (no toda la empresa)
+    return df_act.iloc[0:0].copy()
 
 def emo(e):
     return {'VENCIDO':'🔴 Vencido','CRITICO':'🟠 Crítico','EN_RIESGO':'🟡 En riesgo',
@@ -852,10 +835,17 @@ def main():
         with col_r:
             # Nivel de agrupacion para el resumen segun rol:
             # RRHH/Gerente/SubGerente -> por Jefe
-            # Jefe -> por Administrador (sus reportes directos)
+            # Agrupacion del resumen segun rol:
+            # RRHH/Gerente  -> por Jefe
+            # SubGerente    -> por Jefe (sus reportes directos)
+            # Jefe          -> por Administrador
             # Administrador -> resumen propio
             col_admin = 'Administrador' if 'Administrador' in df.columns else None
-            if role == 'Jefe' and col_admin:
+            if role in ('RRHH', 'Gerente', 'SubGerente'):
+                grp_resumen    = col_jefe
+                titulo_resumen = "### Resumen por Jefe"
+                lbl_col        = 'Jefe'
+            elif role == 'Jefe' and col_admin:
                 grp_resumen    = col_admin
                 titulo_resumen = "### Resumen por Administrador"
                 lbl_col        = 'Administrador'
