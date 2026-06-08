@@ -1,6 +1,8 @@
 {
-  "Fernando Gomez": {
+  "fgomez@apparka.pe": {
     "role": "Gerente",
+    "nombre": "Fernando Gomez",
+    "password": "08208079",
     "areas": [
       "WASHINGTON 863 CERCADO DE LIMA",
       "MAKRO ICA",
@@ -44,7 +46,6 @@
       "PLAZA VEA VIV. LIBERTADORES",
       "PLAZA VEA COMAS",
       "WONG DOS DE MAYO",
-      NaN,
       "REAL ONCE",
       "CENTRO COMERCIAL EL POLO 2",
       "PLAZA VEA CERES",
@@ -331,8 +332,10 @@
       "PLAZA VEA MIRAFLORES"
     ]
   },
-  "Aldo Zamudio": {
-    "role": "Sub Gerente",
+  "azamudio@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Aldo Zamudio",
+    "password": "43364757",
     "areas": [
       "SANNA JAVIER PRADO",
       "MAKRO PIURA",
@@ -572,8 +575,10 @@
       "OPEN PLAZA TRUJILLO"
     ]
   },
-  "Carmen Capristan": {
+  "ccapristan@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Carmen Capristan",
+    "password": "42318205",
     "areas": [
       "MAKRO PIURA",
       "MAKRO ICA",
@@ -682,8 +687,10 @@
       "PLAZA VEA VIV. PEZET"
     ]
   },
-  "Alejandro Roca": {
+  "aroca@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Alejandro Roca",
+    "password": "48530399",
     "areas": [
       "REAL PLAZA TARAPOTO",
       "REAL PLAZA CAJAMARCA",
@@ -695,8 +702,10 @@
       "REAL PLAZA VMT"
     ]
   },
-  "Diego Uriarte": {
+  "duriarte@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Diego Uriarte",
+    "password": "40889781",
     "areas": [
       "WONG ALDABAS",
       "WONG BAJADA BALTA",
@@ -750,8 +759,10 @@
       "OPEN PLAZA TRUJILLO"
     ]
   },
-  "Alfredo Vasquez": {
+  "avasquez@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Alfredo Vasquez",
+    "password": "77910540",
     "areas": [
       "AAP AREQUIPA",
       "AAP AYACUCHO",
@@ -766,8 +777,10 @@
       "WONG ALDABAS"
     ]
   },
-  "Gloria Mora": {
+  "gmora@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Gloria Mora",
+    "password": "09302617",
     "areas": [
       "SANNA EL GOLF",
       "ADP OPERACION PUCALLPA",
@@ -816,8 +829,10 @@
       "SUBTERRANEO SWISSOTEL"
     ]
   },
-  "Lennin Cortegana": {
+  "lcortegana@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Lennin Cortegana",
+    "password": "70199357",
     "areas": [
       "ADP OPERACION ANTA",
       "ADP OPERACION CAJAMARCA",
@@ -832,8 +847,10 @@
       "PLAZA DEL SOL PIURA"
     ]
   },
-  "Kelly Luyo": {
+  "kluyo@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Kelly Luyo",
+    "password": "45414983",
     "areas": [
       "ADP OPERACION IQUITOS",
       "ADP OPERACION PUCALLPA",
@@ -851,8 +868,10 @@
       "SUBTERRANEO CLINICA SAN FELIPE"
     ]
   },
-  "Gerson Peña": {
+  "gpena@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Gerson Peña",
+    "password": "70835875",
     "areas": [
       "OPEN PLAZA ATOCONGO",
       "CYBER PLAZA",
@@ -866,21 +885,27 @@
       "WONG CHACARILLA II"
     ]
   },
-  "Rafael Aguirre": {
+  "raguirre@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Rafael Aguirre",
+    "password": "41849484",
     "areas": [
       "JOCKEY PLAZA",
       "BOULEVARD DE ASIA"
     ]
   },
-  "Vanessa Rubina": {
+  "vrubina@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Vanessa Rubina",
+    "password": "41520409",
     "areas": [
       "BOULEVARD DE ASIA"
     ]
   },
-  "Paul Espinoza": {
+  "pespinoza@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Paul Espinoza",
+    "password": "43943162",
     "areas": [
       "C.C. AREQUIPA CENTER",
       "METRO EMANCIPACION",
@@ -895,8 +920,10 @@
       "WONG UCELLO"
     ]
   },
-  "Xiomara Quispe": {
+  "xquispe@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Xiomara Quispe",
+    "password": "74372964",
     "areas": [
       "CLINICA INTERNACIONAL EL POLO",
       "CLINICA INTERNACIONAL",
@@ -911,8 +938,10 @@
       "TORRE EL PARQUE"
     ]
   },
-  "Erli Sialer": {
+  "esialer@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Erli Sialer",
+    "password": "41202303",
     "areas": [
       "TIME QUALIS",
       "MINKA LAVADO Y TAXI",
@@ -949,8 +978,10 @@
       "MARCAN ROOSEVELT 6000"
     ]
   },
-  "Diana Inouye": {
+  "dinouye@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Diana Inouye",
+    "password": "40390623",
     "areas": [
       "CLINICA MONTESUR",
       "CLINICA RICARDO PALMA",
@@ -963,16 +994,20 @@
       "TORRE REAL OCHO"
     ]
   },
-  "Cynthia Camacho": {
+  "ccamacho@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Cynthia Camacho",
+    "password": "41630434",
     "areas": [
       "FUNDACION FAUCETT",
       "LAP TERMINAL 2",
       "LIMA CARGO CITY"
     ]
   },
-  "Gaby Novoa": {
+  "gnovoa@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Gaby Novoa",
+    "password": "43675715",
     "areas": [
       "HOTEL BELMOND",
       "METRO LA MARINA",
@@ -985,23 +1020,29 @@
       "SAGA DE SAN ISIDRO"
     ]
   },
-  "Alejandra Vega": {
+  "avega@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Alejandra Vega",
+    "password": "70022351",
     "areas": [
       "LA RAMBLA SAN BORJA",
       "TORRE EL ARTE"
     ]
   },
-  "Marwin Carpio": {
+  "mcarpio@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Marwin Carpio",
+    "password": "42920033",
     "areas": [
       "LARCOMAR",
       "CENTRO COMERCIAL PARQUE LA MOLINA",
       "LAVADO Y TAXI LARCOMAR"
     ]
   },
-  "Ruben Apaza": {
+  "rapaza@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Ruben Apaza",
+    "password": "70058438",
     "areas": [
       "MAKRO AREQUIPA",
       "MAKRO AREQUIPA 2",
@@ -1015,8 +1056,10 @@
       "PROMART AREQUIPA"
     ]
   },
-  "Erick Aguirre": {
+  "eaguirre@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Erick Aguirre",
+    "password": "47083587",
     "areas": [
       "MAKRO CALLAO",
       "MAKRO CHIMBOTE",
@@ -1034,8 +1077,10 @@
       "PLAZA VEA CC VENTANILLA"
     ]
   },
-  "Gabriela Gutierrez": {
+  "ggutierrez@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Gabriela Gutierrez",
+    "password": "40866318",
     "areas": [
       "MAKRO CAÑETE",
       "MAKRO CHINCHA",
@@ -1050,8 +1095,10 @@
       "PROMART ICA"
     ]
   },
-  "Jean Carlo Albán": {
+  "jalban@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Jean Carlo Albán",
+    "password": "47787868",
     "areas": [
       "MAKRO CHICLAYO",
       "MAKRO PIURA",
@@ -1066,8 +1113,10 @@
       "PLAZA VEA CC TUMBES"
     ]
   },
-  "Khristian Alvarez": {
+  "kalvarez@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Khristian Alvarez",
+    "password": "72735191",
     "areas": [
       "MAKRO HUAYLAS",
       "MAKRO SURCO",
@@ -1085,8 +1134,10 @@
       "PLAZA VEA VALLE HERMOSO"
     ]
   },
-  "Arnold Salvador": {
+  "asalvador@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Arnold Salvador",
+    "password": "73357334",
     "areas": [
       "MAKRO SAN JUAN DE LURIGANCHO",
       "MAKRO SANTA ANITA",
@@ -1105,8 +1156,10 @@
       "PROMART LA MOLINA"
     ]
   },
-  "Jeffrey Vilchez": {
+  "jvilchez@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Jeffrey Vilchez",
+    "password": "73609210",
     "areas": [
       "MAKRO SAN JUAN DE MIRAFLORES",
       "MAKRO VENEZUELA",
@@ -1124,38 +1177,50 @@
       "PROMART SAN MIGUEL"
     ]
   },
-  "Joshua Arenas": {
+  "jarenas@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Joshua Arenas",
+    "password": "70751253",
     "areas": [
       "MALL AVENTURA AREQUIPA"
     ]
   },
-  "Dennis Gonzales": {
+  "dgonzales@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Dennis Gonzales",
+    "password": "44004689",
     "areas": [
       "MALL AVENTURA CHICLAYO"
     ]
   },
-  "Venus Sevillano": {
+  "vsevillano@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Venus Sevillano",
+    "password": "70368393",
     "areas": [
       "MALL AVENTURA IQUITOS"
     ]
   },
-  "Sheyla Mendoza": {
+  "smendoza@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Sheyla Mendoza",
+    "password": "46596211",
     "areas": [
       "MALL AVENTURA SANTA ANITA"
     ]
   },
-  "Evil Yauri": {
+  "eyauri@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Evil Yauri",
+    "password": "46200026",
     "areas": [
       "MALL AVENTURA SAN JUAN"
     ]
   },
-  "James Panez": {
+  "jpanez@apparka.pe": {
     "role": "Administrador",
+    "nombre": "James Panez",
+    "password": "72478131",
     "areas": [
       "MALL LA MOLINA",
       "METRO BREÑA",
@@ -1168,15 +1233,19 @@
       "WONG OVALO GUTIERREZ"
     ]
   },
-  "Niel Moreno": {
+  "nmoreno@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Niel Moreno",
+    "password": "43626860",
     "areas": [
       "MEGAPLAZA LAVADO Y TAXI",
       "MEGAPLAZA INDEPENDENCIA"
     ]
   },
-  "Jorge Senmache": {
+  "jsenmache@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Jorge Senmache",
+    "password": "44480604",
     "areas": [
       "MEGAPLAZA BARRANCA",
       "MEGAPLAZA CHIMBOTE",
@@ -1185,8 +1254,10 @@
       "QUINDE CAJAMARCA"
     ]
   },
-  "Erick Padilla": {
+  "epadilla@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Erick Padilla",
+    "password": "76136364",
     "areas": [
       "MEGAPLAZA CHORRILLOS",
       "MEGAPLAZA VILLA EL SALVADOR 1",
@@ -1197,65 +1268,85 @@
       "STRIP CENTER CHORRILLOS"
     ]
   },
-  "Diego Velásquez": {
+  "dvelasquez@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Diego Velásquez",
+    "password": "46670475",
     "areas": [
       "PLAZA SAN MIGUEL"
     ]
   },
-  "Dorian Pérez": {
+  "dperez@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Dorian Pérez",
+    "password": "44038724",
     "areas": [
       "PUCP",
       "STRIP CENTER MAGDALENA",
       "VIA MIX COLONIAL"
     ]
   },
-  "Brenda Magallanes": {
+  "bmagallanes@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Brenda Magallanes",
+    "password": "42286206",
     "areas": [
       "REAL PLAZA AREQUIPA"
     ]
   },
-  "Marjhory Ramos": {
+  "mramos@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Marjhory Ramos",
+    "password": "75716779",
     "areas": [
       "REAL PLAZA CHICLAYO"
     ]
   },
-  "Franco Ojeda": {
+  "fojeda@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Franco Ojeda",
+    "password": "47282557",
     "areas": [
       "REAL PLAZA CUSCO"
     ]
   },
-  "Lizeth Taype": {
+  "ltaype@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Lizeth Taype",
+    "password": "75221160",
     "areas": [
       "REAL PLAZA HUANCAYO"
     ]
   },
-  "Roberto Chung": {
+  "rchung@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Roberto Chung",
+    "password": "47187986",
     "areas": [
       "REAL PLAZA JULIACA"
     ]
   },
-  "Mayte Chira": {
+  "mchira@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Mayte Chira",
+    "password": "71597005",
     "areas": [
       "REAL PLAZA PIURA",
       "REAL PLAZA SULLANA"
     ]
   },
-  "Fabiola Espinoza": {
+  "fespinoza@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Fabiola Espinoza",
+    "password": "48402325",
     "areas": [
       "REAL PLAZA SANTA CLARA"
     ]
   },
-  "Diego Ruiz": {
-    "role": "Sub Gerente",
+  "druiz@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Diego Ruiz",
+    "password": "72665835",
     "areas": [
       "MAXIMO ABRIL 596",
       "WASHINGTON 863 CERCADO DE LIMA",
@@ -1316,8 +1407,10 @@
       "GOLDS GYM (UCELLO)"
     ]
   },
-  "Doris Cuba": {
+  "dcuba@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Doris Cuba",
+    "password": "41059650",
     "areas": [
       "ALCIDES CARRION 524",
       "MORAL 205",
@@ -1327,8 +1420,10 @@
       "CALLE SIGLO XX 218"
     ]
   },
-  "Carol Cedano": {
+  "ccedano@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Carol Cedano",
+    "password": "43069971",
     "areas": [
       "ABANCAY",
       "ESPAÑA 557",
@@ -1340,8 +1435,10 @@
       "WASHINGTON 863 CERCADO DE LIMA"
     ]
   },
-  "Everth Contreras": {
+  "econtreras@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Everth Contreras",
+    "password": "43888506",
     "areas": [
       "ALFREDO SALAZAR",
       "ALFREDO SALAZAR V",
@@ -1358,8 +1455,10 @@
       "VASCO NUÑEZ DE BALBOA"
     ]
   },
-  "Angela Ramos": {
+  "aramos@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Angela Ramos",
+    "password": "40938505",
     "areas": [
       "ALIAGA 410",
       "BERNINI",
@@ -1379,8 +1478,10 @@
       "GOLDS GYM (UCELLO)"
     ]
   },
-  "Alexander Huaman": {
+  "ahuaman@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Alexander Huaman",
+    "password": "41353982",
     "areas": [
       "CACERES",
       "CANAVAL Y MOREYRA 505",
@@ -1396,15 +1497,19 @@
       "SP - JUAN DE ARONA 110"
     ]
   },
-  "Flavio Caicedo": {
+  "fcaicedo@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Flavio Caicedo",
+    "password": "75330706",
     "areas": [
       "CENTRO COMERCIAL EL POLO",
       "CENTRO COMERCIAL EL POLO 2"
     ]
   },
-  "Ayax Guardia": {
-    "role": "Sub Gerente",
+  "aguardia@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Ayax Guardia",
+    "password": "09906945",
     "areas": [
       "IMPLEMENTACION",
       "MANTENIMIENTO",
@@ -1413,8 +1518,10 @@
       "PREVENCION"
     ]
   },
-  "Maria Estela Guillen": {
-    "role": "Sub Gerente",
+  "mguillen@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Maria Estela Guillen",
+    "password": "10346833",
     "areas": [
       "TESORERIA",
       "CONTABILIDAD",
@@ -1431,36 +1538,46 @@
       "ADM Y LOGISTICA"
     ]
   },
-  "Rosario Rojas": {
+  "rrojas@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Rosario Rojas",
+    "password": "10247869",
     "areas": [
       "LOGISTICA",
       "ADM Y LOGISTICA"
     ]
   },
-  "Alfredo Leon": {
-    "role": "Sub Gerente",
+  "aleon@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Alfredo Leon",
+    "password": "42320514",
     "areas": [
       "ESTANDARIZACION Y EXCELENCIA OPERATIVA",
       "SERVICIO Y EXP CLIENTE"
     ]
   },
-  "John Jeri": {
-    "role": "Sub Gerente",
+  "jjeri@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "John Jeri",
+    "password": "10325498",
     "areas": [
       "LAVADO Y TAXI"
     ]
   },
-  "Jose Luis Llerena": {
-    "role": "Sub Gerente",
+  "jllerena@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Jose Luis Llerena",
+    "password": "07760153",
     "areas": [
       "TECNOLOGIA",
       "TI",
       "ECA PROPIO"
     ]
   },
-  "Victoria Alarcon": {
+  "valarcon@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Victoria Alarcon",
+    "password": "09903393",
     "areas": [
       "ADM. RH",
       "RECLUTAMIENTO Y SELECCIÓN",
@@ -1470,21 +1587,25 @@
       "CLIMA CULTURA / COMUNICACION INTERNA"
     ]
   },
-  "Oswaldo Aguirre": {
-    "role": "Administrador",
-    "areas": [
-      "ADM. RH"
-    ]
+  "oa@apparka.pe": {
+    "role": "RRHH",
+    "nombre": "Oswaldo Aguirre",
+    "password": "45077315",
+    "areas": []
   },
-  "Andree Cerron": {
+  "acerron@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Andree Cerron",
+    "password": "46409274",
     "areas": [
       "TESORERIA",
       "CREDITOS&COBRANZAS"
     ]
   },
-  "Ernesto Maldonado": {
-    "role": "Sub Gerente",
+  "emaldonado@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Ernesto Maldonado",
+    "password": "40067456",
     "areas": [
       "APPARKA APP",
       "MARKETING",
@@ -1492,81 +1613,107 @@
       "DESARROLLO"
     ]
   },
-  "Jorge Castañeda": {
+  "jcastaneda@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Jorge Castañeda",
+    "password": "43551076",
     "areas": [
       "DESARROLLO"
     ]
   },
-  "Mayra Huerta": {
+  "mhuerta@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Mayra Huerta",
+    "password": "46015110",
     "areas": [
       "CONTABILIDAD"
     ]
   },
-  "Jenny Flores": {
-    "role": "Sub Gerente",
+  "jflores@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Jenny Flores",
+    "password": "18198123",
     "areas": [
       "AUDITORIA"
     ]
   },
-  "Sabrina Sumary": {
+  "ssumary@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Sabrina Sumary",
+    "password": "42821635",
     "areas": [
       "CLIMA CULTURA / COMUNICACION INTERNA"
     ]
   },
-  "Catherine Chang": {
+  "cchang@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Catherine Chang",
+    "password": "42933662",
     "areas": [
       "PLANEAMIENTO Y CONTROL DE GESTIÓN"
     ]
   },
-  "Braulio Chavez": {
+  "bchavez@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Braulio Chavez",
+    "password": "44730393",
     "areas": [
       "MARKETING"
     ]
   },
-  "Alicia San Martin": {
+  "amartin@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Alicia San Martin",
+    "password": "47109353",
     "areas": [
       "CAPACITACION Y DESARROLLO",
       "RECLUTAMIENTO Y SELECCIÓN"
     ]
   },
-  "Mayra Colan": {
-    "role": "Sub Gerente",
+  "mcolan@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Mayra Colan",
+    "password": "44789844",
     "areas": [
       "LEGAL"
     ]
   },
-  "Abel Yucra": {
+  "ayucra@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Abel Yucra",
+    "password": "47609417",
     "areas": [
       "SSOMA"
     ]
   },
-  "Veronica Benites": {
+  "vbenites@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Veronica Benites",
+    "password": "46674113",
     "areas": [
       "BIENESTAR SOCIAL"
     ]
   },
-  "Alejandro Zucca": {
+  "azucca@apparka.pe": {
     "role": "Jefe",
+    "nombre": "Alejandro Zucca",
+    "password": "70874126",
     "areas": [
       "APPARKA APP"
     ]
   },
-  "Walter Dalguer": {
+  "wdalguer@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Walter Dalguer",
+    "password": "43710410",
     "areas": [
       "JOCKEY PLAZA"
     ]
   },
-  "Harry Torres": {
+  "htorres@apparka.pe": {
     "role": "Administrador",
+    "nombre": "Harry Torres",
+    "password": "Apparka2026!",
     "areas": [
       "JOCKEY PLAZA"
     ]
