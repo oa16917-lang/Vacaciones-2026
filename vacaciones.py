@@ -130,8 +130,15 @@ def check_auth():
 # ── Carga datos ────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
 def cargar_meta():
-    for fn, sh in [('CONSOLIDADO_GENERADO.xlsx',None),
-                   ('META_2026_-_Abril.xlsx','Consolidado')]:
+    import os
+    # Intentar primero con hoja especifica, luego con la primera hoja disponible
+    candidatos = [
+        ('CONSOLIDADO_GENERADO.xlsx', None),
+        ('META_2026_-_Abril.xlsx', 'Consolidado'),
+        ('META_2026_-_Abril.xlsx', None),   # fallback: primera hoja
+    ]
+    for fn, sh in candidatos:
+        if not os.path.exists(fn): continue
         try:
             df = pd.read_excel(fn, sheet_name=sh)
             if not len(df): continue
@@ -271,7 +278,7 @@ def cargar_altas_bajas():
 @st.cache_data(ttl=86400)
 def cargar_jerarquia():
     try:
-        with open('person_access.json', encoding='utf-8') as f:
+        with open('acceso_persona.json', encoding='utf-8') as f:
             return json.load(f)
     except:
         return {}
