@@ -1,0 +1,377 @@
+{
+  "oa@apparka.pe": {
+    "role": "RRHH",
+    "nombre": "Oswaldo Aguirre",
+    "password": "45077315"
+  },
+  "ayucra@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Abel Yucra",
+    "password": "47609417"
+  },
+  "azamudio@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Aldo Zamudio",
+    "password": "43364757"
+  },
+  "avega@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Alejandra Vega",
+    "password": "70022351"
+  },
+  "aroca@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Alejandro Roca",
+    "password": "48530399"
+  },
+  "azucca@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Alejandro Zucca",
+    "password": "70874126"
+  },
+  "ahuaman@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Alexander Huaman",
+    "password": "41353982"
+  },
+  "aleon@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Alfredo Leon",
+    "password": "42320514"
+  },
+  "avasquez@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Alfredo Vasquez",
+    "password": "77910540"
+  },
+  "amartin@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Alicia San Martin",
+    "password": "47109353"
+  },
+  "acerron@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Andree Cerron",
+    "password": "46409274"
+  },
+  "aramos@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Angela Ramos",
+    "password": "40938505"
+  },
+  "asalvador@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Arnold Salvador",
+    "password": "73357334"
+  },
+  "aguardia@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Ayax Guardia",
+    "password": "09906945"
+  },
+  "bchavez@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Braulio Chavez",
+    "password": "44730393"
+  },
+  "bmagallanes@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Brenda Magallanes",
+    "password": "42286206"
+  },
+  "ccapristan@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Carmen Capristan",
+    "password": "42318205"
+  },
+  "ccedano@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Carol Cedano",
+    "password": "43069971"
+  },
+  "cchang@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Catherine Chang",
+    "password": "42933662"
+  },
+  "ccamacho@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Cynthia Camacho",
+    "password": "41630434"
+  },
+  "dgonzales@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Dennis Gonzales",
+    "password": "44004689"
+  },
+  "dinouye@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Diana Inouye",
+    "password": "40390623"
+  },
+  "druiz@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Diego Ruiz",
+    "password": "72665835"
+  },
+  "duriarte@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Diego Uriarte",
+    "password": "40889781"
+  },
+  "dvelasquez@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Diego Velásquez",
+    "password": "46670475"
+  },
+  "dperez@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Dorian Pérez",
+    "password": "44038724"
+  },
+  "dcuba@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Doris Cuba",
+    "password": "41059650"
+  },
+  "eaguirre@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Erick Aguirre",
+    "password": "47083587"
+  },
+  "epadilla@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Erick Padilla",
+    "password": "76136364"
+  },
+  "esialer@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Erli Sialer",
+    "password": "41202303"
+  },
+  "emaldonado@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Ernesto Maldonado",
+    "password": "40067456"
+  },
+  "econtreras@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Everth Contreras",
+    "password": "43888506"
+  },
+  "eyauri@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Evil Yauri",
+    "password": "46200026"
+  },
+  "fespinoza@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Fabiola Espinoza",
+    "password": "48402325"
+  },
+  "fgomez@apparka.pe": {
+    "role": "Gerente",
+    "nombre": "Fernando Gomez",
+    "password": "08208079"
+  },
+  "fcaicedo@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Flavio Caicedo",
+    "password": "75330706"
+  },
+  "fojeda@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Franco Ojeda",
+    "password": "47282557"
+  },
+  "ggutierrez@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Gabriela Gutierrez",
+    "password": "40866318"
+  },
+  "gnovoa@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Gaby Novoa",
+    "password": "43675715"
+  },
+  "gpena@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Gerson Peña",
+    "password": "70835875"
+  },
+  "gmora@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Gloria Mora",
+    "password": "09302617"
+  },
+  "htorres@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Harry Torres",
+    "password": "Apparka2026!"
+  },
+  "jpanez@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "James Panez",
+    "password": "72478131"
+  },
+  "jalban@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Jean Carlo Albán",
+    "password": "47787868"
+  },
+  "jvilchez@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Jeffrey Vilchez",
+    "password": "73609210"
+  },
+  "jflores@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Jenny Flores",
+    "password": "18198123"
+  },
+  "jjeri@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "John Jeri",
+    "password": "10325498"
+  },
+  "jcastaneda@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Jorge Castañeda",
+    "password": "43551076"
+  },
+  "jsenmache@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Jorge Senmache",
+    "password": "44480604"
+  },
+  "jllerena@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Jose Luis Llerena",
+    "password": "07760153"
+  },
+  "jarenas@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Joshua Arenas",
+    "password": "70751253"
+  },
+  "kluyo@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Kelly Luyo",
+    "password": "45414983"
+  },
+  "kalvarez@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Khristian Alvarez",
+    "password": "72735191"
+  },
+  "lcortegana@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Lennin Cortegana",
+    "password": "70199357"
+  },
+  "ltaype@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Lizeth Taype",
+    "password": "75221160"
+  },
+  "mguillen@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Maria Estela Guillen",
+    "password": "10346833"
+  },
+  "mramos@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Marjhory Ramos",
+    "password": "75716779"
+  },
+  "mcarpio@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Marwin Carpio",
+    "password": "42920033"
+  },
+  "mcolan@apparka.pe": {
+    "role": "SubGerente",
+    "nombre": "Mayra Colan",
+    "password": "44789844"
+  },
+  "mhuerta@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Mayra Huerta",
+    "password": "46015110"
+  },
+  "mchira@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Mayte Chira",
+    "password": "71597005"
+  },
+  "nmoreno@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Niel Moreno",
+    "password": "43626860"
+  },
+  "pespinoza@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Paul Espinoza",
+    "password": "43943162"
+  },
+  "raguirre@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Rafael Aguirre",
+    "password": "41849484"
+  },
+  "rchung@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Roberto Chung",
+    "password": "47187986"
+  },
+  "rrojas@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Rosario Rojas",
+    "password": "10247869"
+  },
+  "rapaza@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Ruben Apaza",
+    "password": "70058438"
+  },
+  "ssumary@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Sabrina Sumary",
+    "password": "42821635"
+  },
+  "smendoza@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Sheyla Mendoza",
+    "password": "46596211"
+  },
+  "vrubina@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Vanessa Rubina",
+    "password": "41520409"
+  },
+  "vsevillano@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Venus Sevillano",
+    "password": "70368393"
+  },
+  "vbenites@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Veronica Benites",
+    "password": "46674113"
+  },
+  "valarcon@apparka.pe": {
+    "role": "Jefe",
+    "nombre": "Victoria Alarcon",
+    "password": "09903393"
+  },
+  "wdalguer@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Walter Dalguer",
+    "password": "43710410"
+  },
+  "xquispe@apparka.pe": {
+    "role": "Administrador",
+    "nombre": "Xiomara Quispe",
+    "password": "74372964"
+  }
+}
