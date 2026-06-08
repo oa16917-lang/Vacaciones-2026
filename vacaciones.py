@@ -746,7 +746,7 @@ def main():
     col_dp   = 'Dias_x_prog' if 'Dias_x_prog' in df.columns else None
     col_area = next((c for c in ['AREA','Area'] if c in df.columns), None)
     col_cat  = next((c for c in ['Categoria','Categoría'] if c in df.columns), None)
-    col_ger  = next((c for c in ['Gerencia'] if c in df.columns), None)
+    col_ger  = next((c for c in ['Gerencia','Gerente','Sub_Gerente'] if c in df.columns), None)
     col_jefe = 'Jefe' if 'Jefe' in df.columns else None
     col_nom  = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df.columns), None)
 
@@ -842,9 +842,22 @@ def main():
             # Administrador -> resumen propio
             col_admin = 'Administrador' if 'Administrador' in df.columns else None
             if role in ('RRHH', 'Gerente', 'SubGerente'):
-                grp_resumen    = col_jefe
-                titulo_resumen = "### Resumen por Jefe"
-                lbl_col        = 'Jefe'
+                # Si hay columna Jefe con datos, agrupar por Jefe
+                # Si no hay Jefes (areas sin nivel intermedio), agrupar por Administrador
+                jefes_disponibles = df['Jefe'].dropna().unique() if 'Jefe' in df.columns else []
+                admins_disponibles = df['Administrador'].dropna().unique() if 'Administrador' in df.columns else []
+                if len(jefes_disponibles) > 0:
+                    grp_resumen    = col_jefe
+                    titulo_resumen = "### Resumen por Jefe"
+                    lbl_col        = 'Jefe'
+                elif len(admins_disponibles) > 0:
+                    grp_resumen    = 'Administrador'
+                    titulo_resumen = "### Resumen por Administrador"
+                    lbl_col        = 'Administrador'
+                else:
+                    grp_resumen    = col_jefe
+                    titulo_resumen = "### Resumen por Jefe"
+                    lbl_col        = 'Jefe'
             elif role == 'Jefe' and col_admin:
                 grp_resumen    = col_admin
                 titulo_resumen = "### Resumen por Administrador"
@@ -1021,7 +1034,18 @@ def main():
     # ── RESUMEN EJECUTIVO ──────────────────────────────────────────────────────
     elif pagina == "📋 Resumen Ejecutivo":
         st.markdown("## Resumen Ejecutivo por Gerencia")
-        grp = col_ger if col_ger else col_jefe
+        # Para RRHH/Gerente: agrupar por Gerente o Sub_Gerente
+        # Para SubGerente/Jefe/Admin: agrupar por Jefe (o Administrador si no hay Jefe)
+        if role in ('RRHH', 'Gerente'):
+            grp = col_ger if col_ger else col_jefe
+        elif role == 'SubGerente':
+            # Sus areas pueden no tener nivel Gerente, agrupar por Jefe o Admin
+            jefes_ej = df['Jefe'].dropna().unique() if 'Jefe' in df.columns else []
+            grp = 'Jefe' if len(jefes_ej) > 0 else ('Administrador' if 'Administrador' in df.columns else col_jefe)
+        elif role == 'Jefe':
+            grp = 'Administrador' if 'Administrador' in df.columns else col_jefe
+        else:
+            grp = col_jefe
         if grp and grp in df.columns:
             CATS = ['OPERATIVOS','SUPERVISORES','BACK OFFICE']
 
