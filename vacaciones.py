@@ -364,6 +364,15 @@ def construir_consolidado(df_meta, df_visma, df_ab=None):
     df['Fecha límite']  = fechas_l
     df['Dias restantes']= dias_rest
     df['Pct avance']    = pcts
+
+    # Recalcular Dias_x_prog desde Visma: max(0, meta - prog_visma)
+    col_meta_calc = next((c for c in ['Meta2026'] if c in df.columns), None)
+    if col_meta_calc:
+        df['Dias_x_prog'] = df.apply(
+            lambda r: max(0, int(safe_float(r.get(col_meta_calc)) - safe_float(r.get('Prog_visma'))))
+            if str(r.get('Estado','')) not in ['CUMPLIDO','SIN_SALDO'] else 0,
+            axis=1
+        )
     return df
 
 def filtrar_usuario(df, user_name, pa):
