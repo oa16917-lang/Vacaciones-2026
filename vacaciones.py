@@ -275,6 +275,71 @@ def cargar_altas_bajas():
     except Exception as e:
         return pd.DataFrame()
 
+@st.cache_data(ttl=3600)
+def cargar_area_sistema():
+    """
+    Lee Atributos_de_estructuras_por_colaborador.xlsx del sistema.
+    Regla de area (en orden de prioridad):
+      1. CENTROS DE COSTO: area de gestion interna (Back Office, admin, soporte)
+      2. PCES: estacionamiento asignado (operativos de campo)
+      3. AREA: fallback final si no tiene ninguno de los anteriores
+    Retorna dict {'area': {legajo: area}, 'sede': {legajo: sede}}
+    """
+    import os
+    nombres = [
+        'Atributos_de_estructuras_por_colaborador.xlsx',
+        'Atributos de estructuras por colaborador.xlsx',
+    ]
+    archivo = next((n for n in nombres if os.path.exists(n)), None)
+    if not archivo:
+        try:
+            archivo = next(f for f in os.listdir('.') if f.startswith('Atributos') and f.endswith('.xlsx'))
+        except StopIteration:
+            return {}
+    try:
+        df = pd.read_excel(archivo, header=1)
+        df.columns = ['Legajo','Nombre','Tipo_estructura','Atributo','Fecha_desde','Fecha_hasta']
+        # Limpiar espacios en tipo estructura (el sistema exporta con espacios al final)
+        df['Tipo_estructura'] = df['Tipo_estructura'].astype(str).str.strip()
+        df['Atributo']        = df['Atributo'].astype(str).str.strip()
+        df['Legajo']          = df['Legajo'].astype(str).str.replace('.0','',regex=False).str.strip()
+        df = df[df['Legajo'].str.match(r'^[0-9]+$')]
+
+        # Extraer cada tipo relevante
+        ceco = (df[df['Tipo_estructura'] == 'CENTROS DE COSTO']
+                [['Legajo','Atributo']].rename(columns={'Atributo':'CECO'})
+                .drop_duplicates('Legajo'))
+        pces = (df[df['Tipo_estructura'] == 'PCES']
+                [['Legajo','Atributo']].rename(columns={'Atributo':'PCES'})
+                .drop_duplicates('Legajo'))
+        area = (df[df['Tipo_estructura'] == 'AREA']
+                [['Legajo','Atributo']].rename(columns={'Atributo':'AREA_SYS'})
+                .drop_duplicates('Legajo'))
+        sede = (df[df['Tipo_estructura'] == 'SEDE']
+                [['Legajo','Atributo']].rename(columns={'Atributo':'SEDE_SYS'})
+                .drop_duplicates('Legajo'))
+
+        base   = df[['Legajo']].drop_duplicates()
+        result = (base
+                  .merge(ceco, on='Legajo', how='left')
+                  .merge(pces, on='Legajo', how='left')
+                  .merge(area, on='Legajo', how='left')
+                  .merge(sede, on='Legajo', how='left'))
+
+        # Regla de prioridad: CECO > PCES > AREA
+        # CECO = area funcional real (back office, admin, soporte)
+        # PCES = estacionamiento del operativo de campo
+        # AREA = fallback si no tiene ninguno
+        result['AREA_FINAL'] = (result['CECO']
+                                .fillna(result['PCES'])
+                                .fillna(result['AREA_SYS']))
+
+        area_map = result.dropna(subset=['AREA_FINAL']).set_index('Legajo')['AREA_FINAL'].to_dict()
+        sede_map = result.dropna(subset=['SEDE_SYS']).set_index('Legajo')['SEDE_SYS'].to_dict()
+        return {'area': area_map, 'sede': sede_map}
+    except Exception as e:
+        return {}
+
 @st.cache_data(ttl=86400)
 def cargar_jerarquia():
     try:
@@ -292,7 +357,7 @@ def fecha_limite(comentario):
         except: pass
     return None
 
-def construir_consolidado(df_meta, df_visma, df_ab=None):
+def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None):
     hoy       = date.today()
     ignorados = get_ignorados()
 
@@ -321,6 +386,17 @@ def construir_consolidado(df_meta, df_visma, df_ab=None):
         ]['Legajo'].unique())
 
     df = df_meta.copy()
+
+    # Actualizar AREA y SEDE desde el archivo de atributos del sistema (fuente mas fresca)
+    if area_sistema:
+        area_map = area_sistema.get('area', {})
+        sede_map = area_sistema.get('sede', {})
+        col_a = next((c for c in ['AREA','Area'] if c in df.columns), None)
+        col_s = next((c for c in ['SEDE','Sede'] if c in df.columns), None)
+        if area_map and col_a:
+            df[col_a] = df['Legajo'].map(area_map).fillna(df[col_a])
+        if sede_map and col_s:
+            df[col_s] = df['Legajo'].map(sede_map).fillna(df[col_s])
 
     # Marcar cesados en 2026 desde altas/bajas en el flag es_cesado
     # (además de los que ya tienen es_cesado=True por area vacia en META)
@@ -559,8 +635,9 @@ def main():
         st.error("No se encontro el archivo de datos. Sube META_2026_-_Abril.xlsx al repositorio.")
         return
 
-    df_ab   = cargar_altas_bajas()
-    df_full = construir_consolidado(df_meta, df_visma, df_ab)
+    df_ab        = cargar_altas_bajas()
+    area_sistema = cargar_area_sistema()
+    df_full = construir_consolidado(df_meta, df_visma, df_ab, area_sistema)
     df      = filtrar_usuario(df_full, user_name, pa)
     role    = pa.get(user_name, {}).get('role','RRHH')
 
