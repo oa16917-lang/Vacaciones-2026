@@ -158,7 +158,8 @@ def cargar_meta():
             col_n = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df.columns), None)
             if col_n:
                 df = df[df[col_n].notna() & (df[col_n].astype(str).str.strip()!='')]
-            # Marcar cesados
+            # Marcar cesados por area vacia en META
+            # (la deteccion por altas/bajas se hace en construir_consolidado)
             ca = next((c for c in ['AREA','Area'] if c in df.columns), None)
             df['es_cesado'] = False
             if ca:
@@ -211,15 +212,59 @@ def cargar_altas_bajas():
     if not archivo:
         return pd.DataFrame()
     try:
-        df = pd.read_excel(archivo, header=1)
-        df.columns = ['Legajo','Apellidos','Nombres','Estado','Fecha_alta',
-                      'Fecha_baja','Causa','Salario','Vacaciones','Indemnizacion','Real']
-        df = df[df['Legajo'].notna() & (df['Legajo'] != 'Legajo')].copy()
-        df['Legajo']     = df['Legajo'].astype(str).str.replace('.0','',regex=False).str.strip()
-        df['Fecha_baja'] = pd.to_datetime(df['Fecha_baja'], dayfirst=True, errors='coerce')
-        df['Fecha_alta'] = pd.to_datetime(df['Fecha_alta'], dayfirst=True, errors='coerce')
+        # Detectar la fila de encabezado buscando la columna "Legajo"
+        # El archivo puede tener un titulo en fila 1, headers en fila 2
+        header_row = 1  # default: fila 2 (0-indexed = 1)
+        for h in [0, 1, 2]:
+            try:
+                test = pd.read_excel(archivo, header=h, nrows=1)
+                cols_lower = [str(c).strip().lower() for c in test.columns]
+                if 'legajo' in cols_lower:
+                    header_row = h
+                    break
+            except:
+                pass
+
+        df = pd.read_excel(archivo, header=header_row)
+        # Normalizar nombres de columna
+        df.columns = [str(c).strip() for c in df.columns]
+
+        # Mapear columnas por nombre (tolerante a variaciones)
+        col_map = {}
+        for c in df.columns:
+            cl = c.lower()
+            if cl == 'legajo':                                   col_map[c] = 'Legajo'
+            elif 'apellido' in cl:                               col_map[c] = 'Apellidos'
+            elif 'nombre' in cl and 'apellido' not in cl:        col_map[c] = 'Nombres'
+            elif cl == 'estado':                                 col_map[c] = 'Estado'
+            elif 'alta' in cl and 'fecha' in cl:                 col_map[c] = 'Fecha_alta'
+            elif 'baja' in cl and 'fecha' in cl:                 col_map[c] = 'Fecha_baja'
+            elif 'causa' in cl or 'motivo' in cl:                col_map[c] = 'Causa'
+            elif 'vacacion' in cl:                               col_map[c] = 'Vacaciones'
+            elif 'indemniz' in cl:                               col_map[c] = 'Indemnizacion'
+        df = df.rename(columns=col_map)
+
+        # Filtrar filas validas (Legajo numerico)
+        if 'Legajo' not in df.columns:
+            return pd.DataFrame()
+        df = df[df['Legajo'].notna()].copy()
+        df['Legajo'] = df['Legajo'].astype(str).str.replace('.0','',regex=False).str.strip()
+        df = df[df['Legajo'].str.match(r'^[0-9]+$')]  # solo legajos numericos
+
+        # Parsear fechas
+        if 'Fecha_baja' in df.columns:
+            df['Fecha_baja'] = pd.to_datetime(df['Fecha_baja'], dayfirst=True, errors='coerce')
+        else:
+            df['Fecha_baja'] = pd.NaT
+        if 'Fecha_alta' in df.columns:
+            df['Fecha_alta'] = pd.to_datetime(df['Fecha_alta'], dayfirst=True, errors='coerce')
+        else:
+            df['Fecha_alta'] = pd.NaT
+        if 'Estado' not in df.columns:
+            df['Estado'] = ''
+
         return df
-    except:
+    except Exception as e:
         return pd.DataFrame()
 
 @st.cache_data(ttl=86400)
@@ -653,7 +698,7 @@ def main():
         buscar = c1.text_input("🔍 Nombre o legajo")
         f_area = c2.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
         f_cat  = c3.selectbox("Categoría",['Todas']+sorted(df[col_cat].dropna().unique().tolist()) if col_cat else ['Todas'])
-        f_est  = c4.selectbox("Estado",['Todos','VENCIDO','CRITICO','EN_RIESGO','CUMPLIDO','AL_DIA','SIN_SALDO'])
+        f_est  = c4.selectbox("Estado",['Todos','VENCIDO','CRITICO','EN_RIESGO','SIN_SALDO'])
         f_jefe = c5.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
 
         # Solo colaboradores con area Y con dias pendientes por programar
@@ -699,7 +744,7 @@ def main():
                 show[col_int] = show[col_int].apply(lambda x: int(safe_float(x)))
 
         st.dataframe(show, use_container_width=True, hide_index=True, height=500)
-        st.download_button("⬇️ Descargar Excel", to_excel(df_f),
+        st.download_button("⬇️ Descargar Excel", to_excel(show),
             file_name=f"colaboradores_{date.today()}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
