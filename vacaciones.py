@@ -859,22 +859,37 @@ def main():
 
         with col_l:
             if role == 'GerenteGeneral':
-                # Gerente General: tabla de personal a cargo (SubGerentes)
+                # Gerente General: datos de vacaciones de sus reportes directos (SubGerentes)
+                # Mostrar cada SubGerente como persona individual con sus propios dias
                 st.markdown("### Personal a cargo")
-                col_sg = 'Sub_Gerente' if 'Sub_Gerente' in df.columns else None
                 col_meta_gg = next((c for c in ['Meta2026'] if c in df.columns), None)
-                if col_sg and col_meta_gg:
+                puesto_map_gg = area_sistema.get('puesto', {}) if area_sistema else {}
+                if col_meta_gg and pa:
                     rows_gg = []
-                    for sg in sorted(df[col_sg].dropna().unique()):
-                        gd   = df[df[col_sg] == sg]
-                        mj   = col_sum(gd, col_meta_gg)
-                        pj   = cap_sum(gd, 'Prog_visma', col_meta_gg)
-                        pctj = round(pj/mj*100,1) if mj>0 else 0
-                        vj   = int((gd['Estado']=='VENCIDO').sum()) if 'Estado' in gd.columns else 0
-                        dpj  = int(col_sum(gd, col_dp))
-                        rows_gg.append({'Sub Gerente': sg, 'HC': len(gd),
-                                        '% Avance': f"{pctj}%", 'Vencidos': vj,
-                                        'Dias x prog.': dpj})
+                    # Obtener legajos de SubGerentes desde acceso_persona.json
+                    legs_sg = {v.get('legajo',''): v['nombre']
+                               for k,v in pa.items()
+                               if v.get('role') == 'SubGerente' and v.get('legajo')}
+                    for legajo, nombre in sorted(legs_sg.items(), key=lambda x: x[1]):
+                        fila = df[df['Legajo'].astype(str) == str(legajo)]
+                        if fila.empty:
+                            continue
+                        r     = fila.iloc[0]
+                        meta  = safe_float(r.get(col_meta_gg, 0))
+                        prog  = min(safe_float(r.get('Prog_visma', 0)), meta)
+                        pct   = round(prog/meta*100,1) if meta > 0 else 0
+                        dp_p  = max(0, int(meta - prog))
+                        cargo = puesto_map_gg.get(str(legajo), 'Sub Gerente')
+                        estado = str(r.get('Estado',''))
+                        rows_gg.append({
+                            'Nombre':       nombre,
+                            'Cargo':        cargo.title(),
+                            'Meta':         int(meta),
+                            'Prog.':        int(prog),
+                            '% Avance':     f"{pct}%",
+                            'Dias x prog.': dp_p,
+                            'Estado':       emo(estado) if estado else ''
+                        })
                     if rows_gg:
                         rgg = pd.DataFrame(rows_gg).sort_values('Dias x prog.', ascending=False)
                         st.dataframe(rgg, use_container_width=True, hide_index=True, height=420)
@@ -928,10 +943,10 @@ def main():
                 titulo_resumen = "### Resumen de tu area"
                 lbl_col        = None
             elif role == 'GerenteGeneral':
-                # Ve resumen por Grupo (panorama de toda la empresa por grupo)
-                grp_resumen    = mejor_col_resumen(['Grupo', 'Sub_Gerente'])
-                titulo_resumen = "### Resumen por Grupo"
-                lbl_col        = grp_resumen
+                # GerenteGeneral: no muestra panel derecho en dashboard
+                grp_resumen    = None
+                titulo_resumen = ""
+                lbl_col        = None
             elif role == 'Jefe':
                 grp_resumen    = mejor_col_resumen(['Administrador', col_area])
                 lbl_col        = grp_resumen
