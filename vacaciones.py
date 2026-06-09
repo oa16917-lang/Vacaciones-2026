@@ -642,22 +642,9 @@ def filtrar_usuario(df, user_email, pa):
     areas = [a for a in info.get('areas', []) if a and str(a) not in ('nan','None','NaN')]
 
     # RRHH y Gerente ven todo
-    if role in ('RRHH', 'Gerente'):
-        return df_act
-
-    # GerenteGeneral: ver solo colaboradores cuyo cargo es SubGerente o reportes directos
-    # Se filtra por la columna Sub_Gerente (sus reportes directos en df)
-    if role == 'GerenteGeneral':
-        nombre = info.get('nombre', '')
-        col_sg = 'Sub_Gerente' if 'Sub_Gerente' in df_act.columns else None
-        col_j  = 'Jefe' if 'Jefe' in df_act.columns else None
-        if nombre and col_sg:
-            # Ver colaboradores donde el SubGerente = su nombre (sus reportes)
-            mask = df_act[col_sg].astype(str).str.strip() == nombre
-            # Incluir tambien donde Jefe = su nombre (casos directos como Auditoria)
-            if col_j:
-                mask = mask | (df_act[col_j].astype(str).str.strip() == nombre)
-            return df_act[mask].copy()
+    if role in ('RRHH', 'Gerente', 'GerenteGeneral'):
+        # Gerente General ve toda la empresa (igual que RRHH)
+        # La restriccion de "solo reportes directos" aplica solo a las vistas especificas
         return df_act
 
     # Todos los demas (SubGerente, Jefe, Administrador): filtrar por areas del JSON
@@ -871,12 +858,30 @@ def main():
         col_l, col_r = st.columns([1.2,1])
 
         with col_l:
-            st.markdown("### Top 10 áreas con mayor días pendientes por programar")
-            if col_area and col_dp:
-                # Niveles altos (RRHH, Gerente, GerenteGeneral, SubGerente) agrupan por Grupo
-                # Jefe y Administrador ven sus areas individuales
+            if role == 'GerenteGeneral':
+                # Gerente General: tabla de personal a cargo (SubGerentes)
+                st.markdown("### Personal a cargo")
+                col_sg = 'Sub_Gerente' if 'Sub_Gerente' in df.columns else None
+                col_meta_gg = next((c for c in ['Meta2026'] if c in df.columns), None)
+                if col_sg and col_meta_gg:
+                    rows_gg = []
+                    for sg in sorted(df[col_sg].dropna().unique()):
+                        gd   = df[df[col_sg] == sg]
+                        mj   = col_sum(gd, col_meta_gg)
+                        pj   = cap_sum(gd, 'Prog_visma', col_meta_gg)
+                        pctj = round(pj/mj*100,1) if mj>0 else 0
+                        vj   = int((gd['Estado']=='VENCIDO').sum()) if 'Estado' in gd.columns else 0
+                        dpj  = int(col_sum(gd, col_dp))
+                        rows_gg.append({'Sub Gerente': sg, 'HC': len(gd),
+                                        '% Avance': f"{pctj}%", 'Vencidos': vj,
+                                        'Dias x prog.': dpj})
+                    if rows_gg:
+                        rgg = pd.DataFrame(rows_gg).sort_values('Dias x prog.', ascending=False)
+                        st.dataframe(rgg, use_container_width=True, hide_index=True, height=420)
+            elif col_area and col_dp:
+                st.markdown("### Top 10 áreas con mayor días pendientes por programar")
                 usar_grupo = (
-                    role in ('RRHH', 'Gerente', 'GerenteGeneral', 'SubGerente')
+                    role in ('RRHH', 'Gerente', 'SubGerente')
                     and 'Grupo' in df.columns
                     and df['Grupo'].notna().any()
                 )
@@ -923,9 +928,9 @@ def main():
                 titulo_resumen = "### Resumen de tu area"
                 lbl_col        = None
             elif role == 'GerenteGeneral':
-                # Solo ve sus reportes directos agrupados por Sub_Gerente
-                grp_resumen    = mejor_col_resumen(['Sub_Gerente', 'Jefe'])
-                titulo_resumen = "### Resumen por Sub Gerente"
+                # Ve resumen por Grupo (panorama de toda la empresa por grupo)
+                grp_resumen    = mejor_col_resumen(['Grupo', 'Sub_Gerente'])
+                titulo_resumen = "### Resumen por Grupo"
                 lbl_col        = grp_resumen
             elif role == 'Jefe':
                 grp_resumen    = mejor_col_resumen(['Administrador', col_area])
@@ -1231,25 +1236,19 @@ def main():
         # GerenteGeneral: solo reportes directos (SubGerentes + Jefe Auditoria)
         # Se filtra por cargos que contienen GERENTE o son jefes directos suyos
         if role == 'GerenteGeneral':
-            col_cargo = next((c for c in ['Cargo','CARGO','cargo'] if c in df.columns), None)
-            col_sg    = 'Sub_Gerente' if 'Sub_Gerente' in df.columns else None
-            col_jf    = 'Jefe' if 'Jefe' in df.columns else None
-            nombre_gg = pa.get(user_email, {}).get('nombre', '')
-            if col_sg and nombre_gg:
-                # Sus reportes directos: donde Sub_Gerente = su nombre O Jefe = su nombre
-                mask_dir = (df['Sub_Gerente'].astype(str).str.strip() == nombre_gg)
-                if col_jf:
-                    mask_dir = mask_dir | (df[col_jf].astype(str).str.strip() == nombre_gg)
-                df_historial = df[mask_dir]
+            # Solo reportes directos: colaboradores con cargo directivo
+            # Filtrar por puesto en atributos del sistema
+            puesto_map_hist = area_sistema.get('puesto', {}) if area_sistema else {}
+            if puesto_map_hist:
+                # Crear columna puesto temporal para filtrar
+                df_hist_tmp = df.copy()
+                df_hist_tmp['_puesto'] = df_hist_tmp['Legajo'].astype(str).map(puesto_map_hist).fillna('')
+                mask_dir = df_hist_tmp['_puesto'].str.upper().str.contains(
+                    'GERENTE|SUB.GERENTE|JEFE DE AUDITORIA|JEFE AUDITORIA|ASISTENTE DE GERENCIA', na=False
+                )
+                df_historial = df_hist_tmp[mask_dir]
             else:
                 df_historial = df
-            # Ademas filtrar solo por cargos directivos (SubGerente, Gerente, Jefe Auditoria)
-            if col_cargo:
-                mask_cargo = (
-                    df_historial[col_cargo].astype(str).str.upper().str.contains('GERENTE|SUB GERENTE', na=False) |
-                    df_historial[col_cargo].astype(str).str.upper().str.contains('JEFE DE AUDITORIA|JEFE AUDITORIA', na=False)
-                )
-                df_historial = df_historial[mask_cargo]
             leg_ok = set(df_historial['Legajo'].astype(str).unique())
         else:
             leg_ok = set(df['Legajo'].astype(str).unique())
