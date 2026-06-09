@@ -330,7 +330,8 @@
       "PLAZA VEA CHACHI AYACUCHO",
       "CLINICA INTERNACIONAL EL POLO",
       "PLAZA VEA MIRAFLORES"
-    ]
+    ],
+    "legajo": "1008208079"
   },
   "azamudio@apparka.pe": {
     "role": "SubGerente",
@@ -573,7 +574,8 @@
       "PLAZA VEA VIV. PEZET",
       "METRO PEDRO MIOTTA",
       "OPEN PLAZA TRUJILLO"
-    ]
+    ],
+    "legajo": "1043364757"
   },
   "ccapristan@apparka.pe": {
     "role": "Jefe",
@@ -685,7 +687,8 @@
       "PLAZA VEA VIV. ASIA",
       "PLAZA VEA MIRAFLORES",
       "PLAZA VEA VIV. PEZET"
-    ]
+    ],
+    "legajo": "1042318205"
   },
   "aroca@apparka.pe": {
     "role": "Administrador",
@@ -700,7 +703,8 @@
       "REAL PLAZA PRO",
       "REAL PLAZA PUCALLPA",
       "REAL PLAZA VMT"
-    ]
+    ],
+    "legajo": "1048530399"
   },
   "duriarte@apparka.pe": {
     "role": "Jefe",
@@ -757,7 +761,8 @@
       "METRO BREÑA",
       "METRO PEDRO MIOTTA",
       "OPEN PLAZA TRUJILLO"
-    ]
+    ],
+    "legajo": "1040889781"
   },
   "avasquez@apparka.pe": {
     "role": "Administrador",
@@ -775,7 +780,8 @@
       "METRO FAUCETT",
       "METRO INDEPENDENCIA",
       "WONG ALDABAS"
-    ]
+    ],
+    "legajo": "1077910540"
   },
   "gmora@apparka.pe": {
     "role": "Jefe",
@@ -827,7 +833,8 @@
       "CLINICA INTERNACIONAL",
       "MALL AVENTURA AREQUIPA",
       "SUBTERRANEO SWISSOTEL"
-    ]
+    ],
+    "legajo": "1009302617"
   },
   "lcortegana@apparka.pe": {
     "role": "Administrador",
@@ -845,7 +852,8 @@
       "ADP OPERACION TUMBES",
       "PLAZA DEL SOL LUNA PIURA",
       "PLAZA DEL SOL PIURA"
-    ]
+    ],
+    "legajo": "1070199357"
   },
   "kluyo@apparka.pe": {
     "role": "Administrador",
@@ -866,7 +874,8 @@
       "STRIP CENTER MIRAFLORES",
       "SUBTERRANEO SWISSOTEL",
       "SUBTERRANEO CLINICA SAN FELIPE"
-    ]
+    ],
+    "legajo": "1045414983"
   },
   "gpena@apparka.pe": {
     "role": "Administrador",
@@ -883,7 +892,8 @@
       "OPEN PLAZA TRUJILLO",
       "WONG CHACARILLA",
       "WONG CHACARILLA II"
-    ]
+    ],
+    "legajo": "1070835875"
   },
   "raguirre@apparka.pe": {
     "role": "Jefe",
@@ -892,7 +902,8 @@
     "areas": [
       "JOCKEY PLAZA",
       "BOULEVARD DE ASIA"
-    ]
+    ],
+    "legajo": "1041849484"
   },
   "vrubina@apparka.pe": {
     "role": "Administrador",
@@ -900,7 +911,8 @@
     "password": "41520409",
     "areas": [
       "BOULEVARD DE ASIA"
-    ]
+    ],
+    "legajo": "1041520409"
   },
   "pespinoza@apparka.pe": {
     "role": "Administrador",
@@ -918,7 +930,8 @@
       "WONG BAJADA BALTA",
       "WONG BENAVIDES",
       "WONG UCELLO"
-    ]
+    ],
+    "legajo": "1043943162"
   },
   "xquispe@apparka.pe": {
     "role": "Administrador",
@@ -936,7 +949,8 @@
       "SANNA II",
       "SANNA JAVIER PRADO",
       "TORRE EL PARQUE"
-    ]
+    ],
+    "legajo": "1074372964"
   },
   "esialer@apparka.pe": {
     "role": "Jefe",
@@ -976,7 +990,8 @@
       "MINKA",
       "MEGAPLAZA LAVADO Y TAXI",
       "MARCAN ROOSEVELT 6000"
-    ]
+    ],
+    "legajo": "1041202303"
   },
   "dinouye@apparka.pe": {
     "role": "Administrador",
@@ -992,7 +1007,8 @@
       "TIME QUALIS",
       "TIME SURCO",
       "TORRE REAL OCHO"
-    ]
+    ],
+    "legajo": "1040390623"
   },
   "ccamacho@apparka.pe": {
     "role": "Administrador",
@@ -1002,7 +1018,8 @@
       "FUNDACION FAUCETT",
       "LAP TERMINAL 2",
       "LIMA CARGO CITY"
-    ]
+    ],
+    "legajo": "1041630434"
   },
   "gnovoa@apparka.pe": {
     "role": "Administrador",
@@ -1018,7 +1035,8 @@
       "UPC - SAN ISIDRO",
       "UPC - SAN MIGUEL",
       "SAGA DE SAN ISIDRO"
-    ]
+    ],
+    "legajo": "1043675715"
   },
   "avega@apparka.pe": {
     "role": "Administrador",
@@ -1027,7 +1045,8 @@
     "areas": [
       "LA RAMBLA SAN BORJA",
       "TORRE EL ARTE"
-    ]
+    ],
+    "legajo": "1070022351"
   },
   "mcarpio@apparka.pe": {
     "role": "Administrador",
@@ -1037,7 +1056,8 @@
       "LARCOMAR",
       "CENTRO COMERCIAL PARQUE LA MOLINA",
       "LAVADO Y TAXI LARCOMAR"
-    ]
+    ],
+    "legajo": "1042920033"
   },
   "rapaza@apparka.pe": {
     "role": "Administrador",
@@ -1054,7 +1074,8 @@
       "PLAZA VEA CC PUNO",
       "PLAZA VEA CC TACNA",
       "PROMART AREQUIPA"
-    ]
+    ],
+    "legajo": "1070058438"
   },
   "eaguirre@apparka.pe": {
     "role": "Administrador",
@@ -1075,7 +1096,8 @@
       "PLAZA VEA CC PUENTE PIEDRA",
       "PLAZA VEA UNIVERSITARIA",
       "PLAZA VEA CC VENTANILLA"
-    ]
+    ],
+    "legajo": "1047083587"
   },
   "ggutierrez@apparka.pe": {
     "role": "Administrador",
@@ -1093,7 +1115,8 @@
       "PLAZA VEA KIO",
       "PLAZA VEA CC LURIN",
       "PROMART ICA"
-    ]
+    ],
+    "legajo": "1040866318"
   },
   "jalban@apparka.pe": {
     "role": "Administrador",
@@ -1111,7 +1134,8 @@
       "PLAZA VEA CC TALARA",
       "PLAZA VEA CC TARAPOTO",
       "PLAZA VEA CC TUMBES"
-    ]
+    ],
+    "legajo": "1047787868"
   },
   "kalvarez@apparka.pe": {
     "role": "Administrador",
@@ -1132,7 +1156,8 @@
       "PLAZA VEA MIRAFLORES",
       "PLAZA VEA CC PLACITA",
       "PLAZA VEA VALLE HERMOSO"
-    ]
+    ],
+    "legajo": "1072735191"
   },
   "asalvador@apparka.pe": {
     "role": "Administrador",
@@ -1154,7 +1179,8 @@
       "PLAZA VEA SJL",
       "PROMART ATE",
       "PROMART LA MOLINA"
-    ]
+    ],
+    "legajo": "1073357334"
   },
   "jvilchez@apparka.pe": {
     "role": "Administrador",
@@ -1175,7 +1201,8 @@
       "PLAZA VEA VIV. PEZET",
       "PLAZA VEA SUCRE",
       "PROMART SAN MIGUEL"
-    ]
+    ],
+    "legajo": "1073609210"
   },
   "jarenas@apparka.pe": {
     "role": "Administrador",
@@ -1183,7 +1210,8 @@
     "password": "70751253",
     "areas": [
       "MALL AVENTURA AREQUIPA"
-    ]
+    ],
+    "legajo": "1070751253"
   },
   "dgonzales@apparka.pe": {
     "role": "Administrador",
@@ -1191,7 +1219,8 @@
     "password": "44004689",
     "areas": [
       "MALL AVENTURA CHICLAYO"
-    ]
+    ],
+    "legajo": "1044004689"
   },
   "vsevillano@apparka.pe": {
     "role": "Administrador",
@@ -1199,7 +1228,8 @@
     "password": "70368393",
     "areas": [
       "MALL AVENTURA IQUITOS"
-    ]
+    ],
+    "legajo": "1070368393"
   },
   "smendoza@apparka.pe": {
     "role": "Administrador",
@@ -1207,7 +1237,8 @@
     "password": "46596211",
     "areas": [
       "MALL AVENTURA SANTA ANITA"
-    ]
+    ],
+    "legajo": "1046596211"
   },
   "eyauri@apparka.pe": {
     "role": "Administrador",
@@ -1215,7 +1246,8 @@
     "password": "46200026",
     "areas": [
       "MALL AVENTURA SAN JUAN"
-    ]
+    ],
+    "legajo": "1046200026"
   },
   "jpanez@apparka.pe": {
     "role": "Administrador",
@@ -1231,7 +1263,8 @@
       "WONG CAMACHO",
       "WONG LA PLANICIE",
       "WONG OVALO GUTIERREZ"
-    ]
+    ],
+    "legajo": "1072478131"
   },
   "nmoreno@apparka.pe": {
     "role": "Administrador",
@@ -1240,7 +1273,8 @@
     "areas": [
       "MEGAPLAZA LAVADO Y TAXI",
       "MEGAPLAZA INDEPENDENCIA"
-    ]
+    ],
+    "legajo": "1043626860"
   },
   "jsenmache@apparka.pe": {
     "role": "Administrador",
@@ -1252,7 +1286,8 @@
       "MEGAPLAZA HUARAL",
       "MEGAPLAZA JAEN",
       "QUINDE CAJAMARCA"
-    ]
+    ],
+    "legajo": "1044480604"
   },
   "epadilla@apparka.pe": {
     "role": "Administrador",
@@ -1266,7 +1301,8 @@
       "MINKA LAVADO Y TAXI",
       "OUTLET LURIN",
       "STRIP CENTER CHORRILLOS"
-    ]
+    ],
+    "legajo": "1076136364"
   },
   "dvelasquez@apparka.pe": {
     "role": "Administrador",
@@ -1274,7 +1310,8 @@
     "password": "46670475",
     "areas": [
       "PLAZA SAN MIGUEL"
-    ]
+    ],
+    "legajo": "1046670475"
   },
   "dperez@apparka.pe": {
     "role": "Administrador",
@@ -1284,7 +1321,8 @@
       "PUCP",
       "STRIP CENTER MAGDALENA",
       "VIA MIX COLONIAL"
-    ]
+    ],
+    "legajo": "1044038724"
   },
   "bmagallanes@apparka.pe": {
     "role": "Administrador",
@@ -1292,7 +1330,8 @@
     "password": "42286206",
     "areas": [
       "REAL PLAZA AREQUIPA"
-    ]
+    ],
+    "legajo": "1042286206"
   },
   "mramos@apparka.pe": {
     "role": "Administrador",
@@ -1300,7 +1339,8 @@
     "password": "75716779",
     "areas": [
       "REAL PLAZA CHICLAYO"
-    ]
+    ],
+    "legajo": "1075716779"
   },
   "fojeda@apparka.pe": {
     "role": "Administrador",
@@ -1308,7 +1348,8 @@
     "password": "47282557",
     "areas": [
       "REAL PLAZA CUSCO"
-    ]
+    ],
+    "legajo": "1047282557"
   },
   "ltaype@apparka.pe": {
     "role": "Administrador",
@@ -1316,7 +1357,8 @@
     "password": "75221160",
     "areas": [
       "REAL PLAZA HUANCAYO"
-    ]
+    ],
+    "legajo": "1075221160"
   },
   "rchung@apparka.pe": {
     "role": "Administrador",
@@ -1324,7 +1366,8 @@
     "password": "47187986",
     "areas": [
       "REAL PLAZA JULIACA"
-    ]
+    ],
+    "legajo": "1047187986"
   },
   "mchira@apparka.pe": {
     "role": "Administrador",
@@ -1333,7 +1376,8 @@
     "areas": [
       "REAL PLAZA PIURA",
       "REAL PLAZA SULLANA"
-    ]
+    ],
+    "legajo": "1071597005"
   },
   "fespinoza@apparka.pe": {
     "role": "Administrador",
@@ -1341,7 +1385,8 @@
     "password": "48402325",
     "areas": [
       "REAL PLAZA SANTA CLARA"
-    ]
+    ],
+    "legajo": "1048402325"
   },
   "druiz@apparka.pe": {
     "role": "SubGerente",
@@ -1405,7 +1450,8 @@
       "CLINICA JAVIER PRADO II",
       "ALIAGA 410",
       "GOLDS GYM (UCELLO)"
-    ]
+    ],
+    "legajo": "1072665835"
   },
   "dcuba@apparka.pe": {
     "role": "Administrador",
@@ -1418,7 +1464,8 @@
       "CALLE RIVERO 200",
       "CALLE SAN JOSÉ 123",
       "CALLE SIGLO XX 218"
-    ]
+    ],
+    "legajo": "1041059650"
   },
   "ccedano@apparka.pe": {
     "role": "Administrador",
@@ -1433,7 +1480,8 @@
       "PUNO",
       "UNION 1065",
       "WASHINGTON 863 CERCADO DE LIMA"
-    ]
+    ],
+    "legajo": "1043069971"
   },
   "econtreras@apparka.pe": {
     "role": "Administrador",
@@ -1453,7 +1501,8 @@
       "OVALO GUTIERREZ",
       "PARQUE KENNEDY",
       "VASCO NUÑEZ DE BALBOA"
-    ]
+    ],
+    "legajo": "1043888506"
   },
   "aramos@apparka.pe": {
     "role": "Administrador",
@@ -1476,7 +1525,8 @@
       "PARQUE NORTE 700",
       "REAL ONCE",
       "GOLDS GYM (UCELLO)"
-    ]
+    ],
+    "legajo": "1040938505"
   },
   "ahuaman@apparka.pe": {
     "role": "Administrador",
@@ -1495,7 +1545,8 @@
       "REPÚBLICA DE PANAMÁ",
       "SEMINARIO",
       "SP - JUAN DE ARONA 110"
-    ]
+    ],
+    "legajo": "1041353982"
   },
   "fcaicedo@apparka.pe": {
     "role": "Administrador",
@@ -1504,7 +1555,8 @@
     "areas": [
       "CENTRO COMERCIAL EL POLO",
       "CENTRO COMERCIAL EL POLO 2"
-    ]
+    ],
+    "legajo": "1075330706"
   },
   "aguardia@apparka.pe": {
     "role": "SubGerente",
@@ -1516,7 +1568,8 @@
       "CENTRO DE CONTROL",
       "OPERACIONES GERENC",
       "PREVENCION"
-    ]
+    ],
+    "legajo": "1009906945"
   },
   "mguillen@apparka.pe": {
     "role": "SubGerente",
@@ -1536,7 +1589,8 @@
       "CLIMA CULTURA / COMUNICACION INTERNA",
       "BIENESTAR SOCIAL",
       "ADM Y LOGISTICA"
-    ]
+    ],
+    "legajo": "1010346833"
   },
   "rrojas@apparka.pe": {
     "role": "Jefe",
@@ -1545,7 +1599,8 @@
     "areas": [
       "LOGISTICA",
       "ADM Y LOGISTICA"
-    ]
+    ],
+    "legajo": "1010247869"
   },
   "aleon@apparka.pe": {
     "role": "SubGerente",
@@ -1554,7 +1609,8 @@
     "areas": [
       "ESTANDARIZACION Y EXCELENCIA OPERATIVA",
       "SERVICIO Y EXP CLIENTE"
-    ]
+    ],
+    "legajo": "1042320514"
   },
   "jjeri@apparka.pe": {
     "role": "SubGerente",
@@ -1562,7 +1618,8 @@
     "password": "10325498",
     "areas": [
       "LAVADO Y TAXI"
-    ]
+    ],
+    "legajo": "1010325498"
   },
   "jllerena@apparka.pe": {
     "role": "SubGerente",
@@ -1572,7 +1629,8 @@
       "TECNOLOGIA",
       "TI",
       "ECA PROPIO"
-    ]
+    ],
+    "legajo": "1007760153"
   },
   "valarcon@apparka.pe": {
     "role": "Jefe",
@@ -1585,13 +1643,15 @@
       "SSOMA",
       "CAPACITACION Y DESARROLLO",
       "CLIMA CULTURA / COMUNICACION INTERNA"
-    ]
+    ],
+    "legajo": "1009903393"
   },
   "oa@apparka.pe": {
     "role": "RRHH",
     "nombre": "Oswaldo Aguirre",
     "password": "45077315",
-    "areas": []
+    "areas": [],
+    "legajo": "1045077315"
   },
   "acerron@apparka.pe": {
     "role": "Jefe",
@@ -1600,7 +1660,8 @@
     "areas": [
       "TESORERIA",
       "CREDITOS&COBRANZAS"
-    ]
+    ],
+    "legajo": "1046409274"
   },
   "emaldonado@apparka.pe": {
     "role": "SubGerente",
@@ -1611,7 +1672,8 @@
       "MARKETING",
       "COMERCIAL",
       "DESARROLLO"
-    ]
+    ],
+    "legajo": "1040067456"
   },
   "jcastaneda@apparka.pe": {
     "role": "Jefe",
@@ -1619,7 +1681,8 @@
     "password": "43551076",
     "areas": [
       "DESARROLLO"
-    ]
+    ],
+    "legajo": "1043551076"
   },
   "mhuerta@apparka.pe": {
     "role": "Jefe",
@@ -1627,7 +1690,8 @@
     "password": "46015110",
     "areas": [
       "CONTABILIDAD"
-    ]
+    ],
+    "legajo": "1046015110"
   },
   "jflores@apparka.pe": {
     "role": "SubGerente",
@@ -1635,7 +1699,8 @@
     "password": "18198123",
     "areas": [
       "AUDITORIA"
-    ]
+    ],
+    "legajo": "1018198123"
   },
   "ssumary@apparka.pe": {
     "role": "Administrador",
@@ -1643,7 +1708,8 @@
     "password": "42821635",
     "areas": [
       "CLIMA CULTURA / COMUNICACION INTERNA"
-    ]
+    ],
+    "legajo": "1042821635"
   },
   "cchang@apparka.pe": {
     "role": "Jefe",
@@ -1651,7 +1717,8 @@
     "password": "42933662",
     "areas": [
       "PLANEAMIENTO Y CONTROL DE GESTIÓN"
-    ]
+    ],
+    "legajo": "1042933662"
   },
   "bchavez@apparka.pe": {
     "role": "Jefe",
@@ -1659,7 +1726,8 @@
     "password": "44730393",
     "areas": [
       "MARKETING"
-    ]
+    ],
+    "legajo": "1044730393"
   },
   "amartin@apparka.pe": {
     "role": "Administrador",
@@ -1668,7 +1736,8 @@
     "areas": [
       "CAPACITACION Y DESARROLLO",
       "RECLUTAMIENTO Y SELECCIÓN"
-    ]
+    ],
+    "legajo": "1047109353"
   },
   "mcolan@apparka.pe": {
     "role": "SubGerente",
@@ -1676,7 +1745,8 @@
     "password": "44789844",
     "areas": [
       "LEGAL"
-    ]
+    ],
+    "legajo": "1044789844"
   },
   "ayucra@apparka.pe": {
     "role": "Administrador",
@@ -1684,7 +1754,8 @@
     "password": "47609417",
     "areas": [
       "SSOMA"
-    ]
+    ],
+    "legajo": "1047609417"
   },
   "vbenites@apparka.pe": {
     "role": "Administrador",
@@ -1692,7 +1763,8 @@
     "password": "46674113",
     "areas": [
       "BIENESTAR SOCIAL"
-    ]
+    ],
+    "legajo": "1046674113"
   },
   "azucca@apparka.pe": {
     "role": "Jefe",
@@ -1700,7 +1772,8 @@
     "password": "70874126",
     "areas": [
       "APPARKA APP"
-    ]
+    ],
+    "legajo": "1070874126"
   },
   "wdalguer@apparka.pe": {
     "role": "Administrador",
@@ -1708,7 +1781,8 @@
     "password": "43710410",
     "areas": [
       "JOCKEY PLAZA"
-    ]
+    ],
+    "legajo": "1043710410"
   },
   "htorres@apparka.pe": {
     "role": "Administrador",
