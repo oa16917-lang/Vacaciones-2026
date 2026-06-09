@@ -800,18 +800,14 @@ def main():
         </div><hr style='border-color:rgba(255,255,255,0.2);margin:0 0 8px'>""",
             unsafe_allow_html=True)
         st.markdown(f"**{user_name}**")
-        # Buscar puesto real desde atributos del sistema
+        # Buscar puesto real desde atributos del sistema usando legajo del JSON
         puesto_map  = area_sistema.get('puesto', {}) if area_sistema else {}
         puesto_user = ''
-        if puesto_map and col_nom and not df_full.empty:
-            # Buscar legajo por nombre en df_full
-            col_n_full = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df_full.columns), None)
-            if col_n_full:
-                fila_u = df_full[df_full[col_n_full].astype(str).str.upper()
-                                  .str.contains(user_name.split()[0].upper(), na=False)]
-                if not fila_u.empty:
-                    leg_u = str(fila_u.iloc[0]['Legajo'])
-                    puesto_user = puesto_map.get(leg_u, '')
+        if puesto_map:
+            # Prioridad: legajo directo del acceso_persona.json
+            legajo_user = str(pa.get(user_email, {}).get('legajo', ''))
+            if legajo_user:
+                puesto_user = puesto_map.get(legajo_user, '')
         if puesto_user:
             st.caption(puesto_user.title())
         else:
