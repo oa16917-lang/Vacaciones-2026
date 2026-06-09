@@ -340,6 +340,20 @@ def cargar_area_sistema():
     except Exception as e:
         return {}
 
+
+@st.cache_data(ttl=3600)
+def cargar_grupos_area():
+    """Lee grupos_area.json: {Jefe -> nombre_grupo}"""
+    import os
+    for fn in ['grupos_area.json']:
+        if os.path.exists(fn):
+            try:
+                with open(fn, encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                pass
+    return {}
+
 @st.cache_data(ttl=86400)
 def cargar_jerarquia():
     """Carga acceso_persona.json para autenticacion y roles de usuario."""
@@ -485,6 +499,14 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
             if col not in df.columns:
                 df[col] = None
 
+    # Agregar columna Grupo desde grupos_area.json (Jefe -> nombre grupo)
+    grupos_map = cargar_grupos_area()
+    if grupos_map and 'Jefe' in df.columns:
+        df['Grupo'] = df['Jefe'].map(grupos_map)
+        # Para colaboradores sin Jefe (SubGerente directo), usar Sub_Gerente como clave
+        mask_sin_grupo = df['Grupo'].isna() & df['Sub_Gerente'].notna()
+        df.loc[mask_sin_grupo, 'Grupo'] = df.loc[mask_sin_grupo, 'Sub_Gerente'].map(grupos_map)
+
     # Marcar cesados en 2026 desde altas/bajas en el flag es_cesado
     # (además de los que ya tienen es_cesado=True por area vacia en META)
     if cesados_2026:
@@ -616,12 +638,25 @@ def filtrar_usuario(df, user_email, pa):
     if role in ('RRHH', 'Gerente'):
         return df_act
 
+    # GerenteGeneral: ver solo colaboradores cuyo cargo es SubGerente o reportes directos
+    # Se filtra por la columna Sub_Gerente (sus reportes directos en df)
+    if role == 'GerenteGeneral':
+        nombre = info.get('nombre', '')
+        col_sg = 'Sub_Gerente' if 'Sub_Gerente' in df_act.columns else None
+        col_j  = 'Jefe' if 'Jefe' in df_act.columns else None
+        if nombre and col_sg:
+            # Ver colaboradores donde el SubGerente = su nombre (sus reportes)
+            mask = df_act[col_sg].astype(str).str.strip() == nombre
+            # Incluir tambien donde Jefe = su nombre (casos directos como Auditoria)
+            if col_j:
+                mask = mask | (df_act[col_j].astype(str).str.strip() == nombre)
+            return df_act[mask].copy()
+        return df_act
+
     # Todos los demas (SubGerente, Jefe, Administrador): filtrar por areas del JSON
-    # Las areas en el JSON ya estan correctamente asignadas por nivel jerarquico
     if areas and col_a:
         return df_act[df_act[col_a].isin(areas)].copy()
 
-    # Si no tiene areas definidas, mostrar vacio (no toda la empresa)
     return df_act.iloc[0:0].copy()
 
 def emo(e):
@@ -758,14 +793,23 @@ def main():
         </div><hr style='border-color:rgba(255,255,255,0.2);margin:0 0 8px'>""",
             unsafe_allow_html=True)
         st.markdown(f"**{user_name}**")
-        roles_label = {'RRHH':'RRHH','Gerente':'Gerente','SubGerente':'Sub Gerente',
-                       'Jefe':'Jefe de Area','Administrador':'Administrador'}
+        roles_label = {'RRHH':'RRHH','Gerente':'Gerente','GerenteGeneral':'Gerente General',
+                       'SubGerente':'Sub Gerente','Jefe':'Jefe de Area','Administrador':'Administrador'}
         st.caption(f"Rol: {roles_label.get(role, role)}")
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2)'>",unsafe_allow_html=True)
-        pagina = st.radio("", [
-            "📊 Dashboard","👥 Colaboradores por Área","🔔 Centro de Alertas",
-            "📅 Calendario","📋 Resumen Ejecutivo","📂 Historial de Vacaciones",
-        ], label_visibility="collapsed")
+        # Menu segun rol
+        if role == 'GerenteGeneral':
+            opciones_menu = [
+                "📊 Dashboard",
+                "📋 Resumen Ejecutivo",
+                "📂 Historial de Vacaciones",
+            ]
+        else:
+            opciones_menu = [
+                "📊 Dashboard","👥 Colaboradores por Área","🔔 Centro de Alertas",
+                "📅 Calendario","📋 Resumen Ejecutivo","📂 Historial de Vacaciones",
+            ]
+        pagina = st.radio("", opciones_menu, label_visibility="collapsed")
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2)'>",unsafe_allow_html=True)
         if st.button("Cerrar sesión"):
             st.session_state.authenticated = False; st.rerun()
@@ -775,7 +819,7 @@ def main():
         st.markdown("## Dashboard — Vacaciones")
 
         # KPIs scoped al usuario — si es RRHH ve empresa completa, si es Jefe/Admin ve su area
-        is_rrhh = (role in ('RRHH', 'Gerente'))  # Gerente ve empresa completa igual que RRHH
+        is_rrhh = (role in ('RRHH', 'Gerente', 'GerenteGeneral'))  # ven empresa completa
         df_scope = df_full if is_rrhh else df
 
         col_meta_scope = next((c for c in ['Meta2026'] if c in df_scope.columns), None)
@@ -811,8 +855,12 @@ def main():
         with col_l:
             st.markdown("### Top 10 áreas con mayor días pendientes por programar")
             if col_area and col_dp:
+                # GerenteGeneral agrupa por Grupo; resto por Area
+                col_top10 = ('Grupo' if role == 'GerenteGeneral'
+                             and 'Grupo' in df.columns
+                             and df['Grupo'].notna().any() else col_area)
                 top10 = (df[df[col_dp].apply(safe_float)>0]
-                         .groupby(col_area)[col_dp]
+                         .groupby(col_top10)[col_dp]
                          .apply(lambda x: x.apply(safe_float).sum())
                          .sort_values(ascending=False)
                          .head(10).reset_index())
@@ -852,6 +900,11 @@ def main():
                 grp_resumen    = None
                 titulo_resumen = "### Resumen de tu area"
                 lbl_col        = None
+            elif role == 'GerenteGeneral':
+                # Solo ve sus reportes directos agrupados por Sub_Gerente
+                grp_resumen    = mejor_col_resumen(['Sub_Gerente', 'Jefe'])
+                titulo_resumen = "### Resumen por Sub Gerente"
+                lbl_col        = grp_resumen
             elif role == 'Jefe':
                 grp_resumen    = mejor_col_resumen(['Administrador', col_area])
                 lbl_col        = grp_resumen
@@ -1045,8 +1098,11 @@ def main():
                     return c
             return None
 
-        if role in ('RRHH', 'Gerente'):
-            grp = primera_col_con_datos(['Jefe', 'Sub_Gerente', 'Gerente', col_ger, col_jefe])
+        if role == 'GerenteGeneral':
+            # Ve resumen por Grupo (nombre agrupado de las areas)
+            grp = primera_col_con_datos(['Grupo', 'Sub_Gerente', col_jefe])
+        elif role in ('RRHH', 'Gerente'):
+            grp = primera_col_con_datos(['Grupo', 'Jefe', 'Sub_Gerente', col_ger, col_jefe])
         elif role == 'SubGerente':
             grp = primera_col_con_datos(['Jefe', 'Administrador', col_area, col_jefe])
         elif role == 'Jefe':
@@ -1149,7 +1205,31 @@ def main():
         if df_visma.empty:
             st.warning("Sube Vacaciones_-_Dias_solicitados__28_.xlsx al repositorio.")
             return
-        leg_ok = set(df['Legajo'].astype(str).unique())
+        # GerenteGeneral: solo reportes directos (SubGerentes + Jefe Auditoria)
+        # Se filtra por cargos que contienen GERENTE o son jefes directos suyos
+        if role == 'GerenteGeneral':
+            col_cargo = next((c for c in ['Cargo','CARGO','cargo'] if c in df.columns), None)
+            col_sg    = 'Sub_Gerente' if 'Sub_Gerente' in df.columns else None
+            col_jf    = 'Jefe' if 'Jefe' in df.columns else None
+            nombre_gg = pa.get(user_email, {}).get('nombre', '')
+            if col_sg and nombre_gg:
+                # Sus reportes directos: donde Sub_Gerente = su nombre O Jefe = su nombre
+                mask_dir = (df['Sub_Gerente'].astype(str).str.strip() == nombre_gg)
+                if col_jf:
+                    mask_dir = mask_dir | (df[col_jf].astype(str).str.strip() == nombre_gg)
+                df_historial = df[mask_dir]
+            else:
+                df_historial = df
+            # Ademas filtrar solo por cargos directivos (SubGerente, Gerente, Jefe Auditoria)
+            if col_cargo:
+                mask_cargo = (
+                    df_historial[col_cargo].astype(str).str.upper().str.contains('GERENTE|SUB GERENTE', na=False) |
+                    df_historial[col_cargo].astype(str).str.upper().str.contains('JEFE DE AUDITORIA|JEFE AUDITORIA', na=False)
+                )
+                df_historial = df_historial[mask_cargo]
+            leg_ok = set(df_historial['Legajo'].astype(str).unique())
+        else:
+            leg_ok = set(df['Legajo'].astype(str).unique())
         hist   = df_visma[df_visma['Legajo'].isin(leg_ok)].copy()
 
         # Limpiar columnas
