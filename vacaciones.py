@@ -1126,7 +1126,8 @@ def main():
         elif role in ('RRHH', 'Gerente'):
             grp = primera_col_con_datos(['Grupo', 'Jefe', 'Sub_Gerente', col_ger, col_jefe])
         elif role == 'SubGerente':
-            grp = primera_col_con_datos(['Jefe', 'Administrador', col_area, col_jefe])
+            # Usar Grupo para agrupar (mas legible que nombres de Jefe)
+            grp = primera_col_con_datos(['Grupo', 'Jefe', 'Administrador', col_area, col_jefe])
         elif role == 'Jefe':
             grp = primera_col_con_datos(['Administrador', col_area, col_jefe])
         else:
