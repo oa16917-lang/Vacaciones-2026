@@ -334,9 +334,16 @@ def cargar_area_sistema():
                                 .fillna(result['PCES'])
                                 .fillna(result['AREA_SYS']))
 
-        area_map = result.dropna(subset=['AREA_FINAL']).set_index('Legajo')['AREA_FINAL'].to_dict()
-        sede_map = result.dropna(subset=['SEDE_SYS']).set_index('Legajo')['SEDE_SYS'].to_dict()
-        return {'area': area_map, 'sede': sede_map}
+        # Extraer PUESTO por legajo
+        puesto = (df[df['Tipo_estructura'] == 'PUESTO']
+                  [['Legajo','Atributo']].rename(columns={'Atributo':'PUESTO'})
+                  .drop_duplicates('Legajo'))
+        result = result.merge(puesto, on='Legajo', how='left')
+
+        area_map   = result.dropna(subset=['AREA_FINAL']).set_index('Legajo')['AREA_FINAL'].to_dict()
+        sede_map   = result.dropna(subset=['SEDE_SYS']).set_index('Legajo')['SEDE_SYS'].to_dict()
+        puesto_map = result.dropna(subset=['PUESTO']).set_index('Legajo')['PUESTO'].to_dict()
+        return {'area': area_map, 'sede': sede_map, 'puesto': puesto_map}
     except Exception as e:
         return {}
 
@@ -793,9 +800,24 @@ def main():
         </div><hr style='border-color:rgba(255,255,255,0.2);margin:0 0 8px'>""",
             unsafe_allow_html=True)
         st.markdown(f"**{user_name}**")
-        roles_label = {'RRHH':'RRHH','Gerente':'Gerente','GerenteGeneral':'Gerente General',
-                       'SubGerente':'Sub Gerente','Jefe':'Jefe de Area','Administrador':'Administrador'}
-        st.caption(f"Rol: {roles_label.get(role, role)}")
+        # Buscar puesto real desde atributos del sistema
+        puesto_map  = area_sistema.get('puesto', {}) if area_sistema else {}
+        puesto_user = ''
+        if puesto_map and col_nom and not df_full.empty:
+            # Buscar legajo por nombre en df_full
+            col_n_full = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df_full.columns), None)
+            if col_n_full:
+                fila_u = df_full[df_full[col_n_full].astype(str).str.upper()
+                                  .str.contains(user_name.split()[0].upper(), na=False)]
+                if not fila_u.empty:
+                    leg_u = str(fila_u.iloc[0]['Legajo'])
+                    puesto_user = puesto_map.get(leg_u, '')
+        if puesto_user:
+            st.caption(puesto_user.title())
+        else:
+            roles_label = {'RRHH':'RRHH','Gerente':'Gerente','GerenteGeneral':'Gerente General',
+                           'SubGerente':'Sub Gerente','Jefe':'Jefe de Área','Administrador':'Administrador'}
+            st.caption(f"Rol: {roles_label.get(role, role)}")
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2)'>",unsafe_allow_html=True)
         # Menu segun rol
         if role == 'GerenteGeneral':
@@ -855,10 +877,14 @@ def main():
         with col_l:
             st.markdown("### Top 10 áreas con mayor días pendientes por programar")
             if col_area and col_dp:
-                # GerenteGeneral agrupa por Grupo; resto por Area
-                col_top10 = ('Grupo' if role == 'GerenteGeneral'
-                             and 'Grupo' in df.columns
-                             and df['Grupo'].notna().any() else col_area)
+                # Niveles altos (RRHH, Gerente, GerenteGeneral, SubGerente) agrupan por Grupo
+                # Jefe y Administrador ven sus areas individuales
+                usar_grupo = (
+                    role in ('RRHH', 'Gerente', 'GerenteGeneral', 'SubGerente')
+                    and 'Grupo' in df.columns
+                    and df['Grupo'].notna().any()
+                )
+                col_top10 = 'Grupo' if usar_grupo else col_area
                 top10 = (df[df[col_dp].apply(safe_float)>0]
                          .groupby(col_top10)[col_dp]
                          .apply(lambda x: x.apply(safe_float).sum())
