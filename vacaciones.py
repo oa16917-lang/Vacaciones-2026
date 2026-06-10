@@ -806,6 +806,7 @@ def main():
         if role == 'GerenteGeneral':
             opciones_menu = [
                 "📊 Dashboard",
+                "📅 Calendario",
                 "📋 Resumen Ejecutivo",
                 "📂 Historial de Vacaciones",
             ]
@@ -855,90 +856,82 @@ def main():
         c5.markdown(kpi("Días por programar", fmt_num(dp), MORADO), unsafe_allow_html=True)
 
         st.markdown("---")
-        col_l, col_r = st.columns([1.2,1])
 
-        with col_l:
-            if role == 'GerenteGeneral':
-                # Gerente General: datos de vacaciones de sus reportes directos
-                # Fuente: todos los puestos que contienen GERENTE en el archivo de atributos
-                # (excluye al propio Fernando Gomez)
-                st.markdown("### Personal a cargo")
-                col_meta_gg   = next((c for c in ['Meta2026'] if c in df.columns), None)
-                puesto_map_gg = area_sistema.get('puesto', {}) if area_sistema else {}
-                legajo_gg     = str(pa.get(user_email, {}).get('legajo', ''))
+        # ── GerenteGeneral: tabla Personal a cargo a ancho completo ────────────
+        if role == 'GerenteGeneral':
+            st.markdown("### Personal a cargo")
+            col_meta_gg   = next((c for c in ['Meta2026'] if c in df.columns), None)
+            puesto_map_gg = area_sistema.get('puesto', {}) if area_sistema else {}
+            legajo_gg     = str(pa.get(user_email, {}).get('legajo', ''))
+            if col_meta_gg and puesto_map_gg:
+                legs_dir = {leg: cargo for leg, cargo in puesto_map_gg.items()
+                            if 'GERENTE' in cargo.upper() and leg != legajo_gg}
+                rows_gg = []
+                for legajo, cargo in sorted(legs_dir.items(), key=lambda x: x[1]):
+                    fila = df[df['Legajo'].astype(str) == str(legajo)]
+                    if fila.empty: continue
+                    r      = fila.iloc[0]
+                    col_n  = next((c for c in ['Nombre','Apellidos y Nombres'] if c in df.columns), None)
+                    nombre_col = str(r.get(col_n,'')).title() if col_n else legajo
+                    meta   = safe_float(r.get(col_meta_gg, 0))
+                    prog   = min(safe_float(r.get('Prog_visma', 0)), meta)
+                    pct    = round(prog/meta*100, 1) if meta > 0 else 0
+                    dp_p   = max(0, int(meta - prog))
+                    estado = str(r.get('Estado', ''))
+                    rows_gg.append({
+                        'Nombre':        nombre_col,
+                        'Cargo':         cargo.title(),
+                        'Meta (días)':   int(meta),
+                        'Prog. (días)':  int(prog),
+                        '% Avance':      f"{pct}%",
+                        'Días x prog.':  dp_p,
+                        'Estado':        emo(estado) if estado else ''
+                    })
+                if rows_gg:
+                    rgg = pd.DataFrame(rows_gg).sort_values('Días x prog.', ascending=False)
+                    st.dataframe(rgg, use_container_width=True, hide_index=True,
+                                 height=min(50 + len(rgg)*38, 600))
 
-                if col_meta_gg and puesto_map_gg:
-                    # Obtener legajos de directivos desde puesto_map (contienen GERENTE)
-                    legs_dir = {leg: cargo for leg, cargo in puesto_map_gg.items()
-                                if 'GERENTE' in cargo.upper() and leg != legajo_gg}
-
-                    rows_gg = []
-                    for legajo, cargo in sorted(legs_dir.items(),
-                                                key=lambda x: x[1]):  # ordenar por cargo
-                        fila = df[df['Legajo'].astype(str) == str(legajo)]
-                        if fila.empty:
-                            continue
-                        r    = fila.iloc[0]
-                        col_n = next((c for c in ['Nombre','Apellidos y Nombres']
-                                      if c in df.columns), None)
-                        nombre_col = str(r.get(col_n, '')).title() if col_n else legajo
-                        meta  = safe_float(r.get(col_meta_gg, 0))
-                        prog  = min(safe_float(r.get('Prog_visma', 0)), meta)
-                        pct   = round(prog/meta*100, 1) if meta > 0 else 0
-                        dp_p  = max(0, int(meta - prog))
-                        estado = str(r.get('Estado', ''))
-                        rows_gg.append({
-                            'Nombre':        nombre_col,
-                            'Cargo':         cargo.title(),
-                            'Meta (días)':   int(meta),
-                            'Prog. (días)':  int(prog),
-                            '% Avance':      f"{pct}%",
-                            'Días x prog.':  dp_p,
-                            'Estado':        emo(estado) if estado else ''
-                        })
-                    if rows_gg:
-                        rgg = pd.DataFrame(rows_gg).sort_values('Días x prog.',
-                                                                  ascending=False)
-                        st.dataframe(rgg, use_container_width=True,
-                                     hide_index=True, height=450)
-            elif col_area and col_dp:
+        else:
+            # ── Resto de roles: Top10 + Resumen ─────────────────────────────────
+            col_l, col_r = st.columns([1.2,1])
+            with col_l:
                 st.markdown("### Top 10 áreas con mayor días pendientes por programar")
-                usar_grupo = (
-                    role in ('RRHH', 'Gerente', 'SubGerente')
-                    and 'Grupo' in df.columns
-                    and df['Grupo'].notna().any()
-                )
-                col_top10 = 'Grupo' if usar_grupo else col_area
-                top10 = (df[df[col_dp].apply(safe_float)>0]
-                         .groupby(col_top10)[col_dp]
-                         .apply(lambda x: x.apply(safe_float).sum())
-                         .sort_values(ascending=False)
-                         .head(10).reset_index())
-                top10.columns = ['Area','Dias']
-                top10['Dias'] = top10['Dias'].astype(int)
-                max_v = int(top10['Dias'].max()) if len(top10)>0 else 1
-                for _, row_t in top10.iterrows():
-                    pct_b = int(row_t['Dias']/max_v*100) if max_v>0 else 0
-                    st.markdown(
-                        f"<div style='margin-bottom:10px'>"
-                        f"<div style='display:flex;justify-content:space-between;"
-                        f"font-size:13px;margin-bottom:3px'>"
-                        f"<span style='color:{AZUL};font-weight:500'>{row_t['Area']}</span>"
-                        f"<span style='color:{FUCSIA};font-weight:700'>{row_t['Dias']:,} días</span></div>"
-                        f"<div style='height:7px;background:{AZUL_L};border-radius:4px'>"
-                        f"<div style='width:{pct_b}%;height:100%;background:{FUCSIA};"
-                        f"border-radius:4px'></div></div></div>",
-                        unsafe_allow_html=True)
+                if col_area and col_dp:
+                    usar_grupo = (
+                        role in ('RRHH', 'Gerente', 'SubGerente')
+                        and 'Grupo' in df.columns
+                        and df['Grupo'].notna().any()
+                    )
+                    col_top10 = 'Grupo' if usar_grupo else col_area
+                    top10 = (df[df[col_dp].apply(safe_float)>0]
+                             .groupby(col_top10)[col_dp]
+                             .apply(lambda x: x.apply(safe_float).sum())
+                             .sort_values(ascending=False)
+                             .head(10).reset_index())
+                    top10.columns = ['Area','Dias']
+                    top10['Dias'] = top10['Dias'].astype(int)
+                    max_v = int(top10['Dias'].max()) if len(top10)>0 else 1
+                    for _, row_t in top10.iterrows():
+                        pct_b = int(row_t['Dias']/max_v*100) if max_v>0 else 0
+                        st.markdown(
+                            f"<div style='margin-bottom:10px'>"
+                            f"<div style='display:flex;justify-content:space-between;"
+                            f"font-size:13px;margin-bottom:3px'>"
+                            f"<span style='color:{AZUL};font-weight:500'>{row_t['Area']}</span>"
+                            f"<span style='color:{FUCSIA};font-weight:700'>{row_t['Dias']:,} días</span></div>"
+                            f"<div style='height:7px;background:{AZUL_L};border-radius:4px'>"
+                            f"<div style='width:{pct_b}%;height:100%;background:{FUCSIA};"
+                            f"border-radius:4px'></div></div></div>",
+                            unsafe_allow_html=True)
 
-        with col_r:
-            # Nivel de agrupacion para el resumen segun rol:
-            # RRHH/Gerente/SubGerente -> por Jefe
-            # Agrupacion del resumen segun rol:
-            # RRHH/Gerente  -> por Jefe
-            # SubGerente    -> por Jefe (sus reportes directos)
-            # Jefe          -> por Administrador
-            # Administrador -> resumen propio
-            col_admin = 'Administrador' if 'Administrador' in df.columns else None
+            with col_r:
+                # Agrupacion del resumen segun rol:
+                # RRHH/Gerente  -> por Jefe
+                # SubGerente    -> por Jefe (sus reportes directos)
+                # Jefe          -> por Administrador
+                # Administrador -> resumen propio
+                col_admin = 'Administrador' if 'Administrador' in df.columns else None
             # Buscar la primera columna jerarquica con datos reales en el df del usuario
             def mejor_col_resumen(candidatos):
                 for c in candidatos:
@@ -1121,12 +1114,23 @@ def main():
         with c1:
             mes_sel  = st.selectbox("Mes", MES_NAMES, index=date.today().month-1)
             anio_sel = st.selectbox("Año", [2025,2026,2027], index=1)
-            f_jefe_c = st.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
-            f_area_c = st.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
+            if role != 'GerenteGeneral':
+                f_jefe_c = st.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
+                f_area_c = st.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
             f_leg_c  = st.text_input("Buscar legajo o nombre", placeholder="Ej: 1000097727")
-        df_cal = df.copy()
-        if f_jefe_c!='Todos' and col_jefe: df_cal=df_cal[df_cal[col_jefe]==f_jefe_c]
-        if f_area_c!='Todas' and col_area: df_cal=df_cal[df_cal[col_area]==f_area_c]
+
+        # GerenteGeneral: filtrar solo sus directivos (puestos con GERENTE)
+        if role == 'GerenteGeneral':
+            puesto_map_cal = area_sistema.get('puesto', {}) if area_sistema else {}
+            legajo_gg_cal  = str(pa.get(user_email, {}).get('legajo', ''))
+            legs_dir_cal   = {leg for leg, cargo in puesto_map_cal.items()
+                              if 'GERENTE' in cargo.upper() and leg != legajo_gg_cal}
+            df_cal = df[df['Legajo'].astype(str).isin(legs_dir_cal)].copy()
+        else:
+            df_cal = df.copy()
+            if f_jefe_c!='Todos' and col_jefe: df_cal=df_cal[df_cal[col_jefe]==f_jefe_c]
+            if f_area_c!='Todas' and col_area: df_cal=df_cal[df_cal[col_area]==f_area_c]
+
         if f_leg_c:
             mk = df_cal['Legajo'].astype(str).str.contains(f_leg_c,na=False)
             if col_nom: mk |= df_cal[col_nom].astype(str).str.upper().str.contains(f_leg_c.upper(),na=False)
