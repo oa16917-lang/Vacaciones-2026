@@ -859,40 +859,48 @@ def main():
 
         with col_l:
             if role == 'GerenteGeneral':
-                # Gerente General: datos de vacaciones de sus reportes directos (SubGerentes)
-                # Mostrar cada SubGerente como persona individual con sus propios dias
+                # Gerente General: datos de vacaciones de sus reportes directos
+                # Fuente: todos los puestos que contienen GERENTE en el archivo de atributos
+                # (excluye al propio Fernando Gomez)
                 st.markdown("### Personal a cargo")
-                col_meta_gg = next((c for c in ['Meta2026'] if c in df.columns), None)
+                col_meta_gg   = next((c for c in ['Meta2026'] if c in df.columns), None)
                 puesto_map_gg = area_sistema.get('puesto', {}) if area_sistema else {}
-                if col_meta_gg and pa:
+                legajo_gg     = str(pa.get(user_email, {}).get('legajo', ''))
+
+                if col_meta_gg and puesto_map_gg:
+                    # Obtener legajos de directivos desde puesto_map (contienen GERENTE)
+                    legs_dir = {leg: cargo for leg, cargo in puesto_map_gg.items()
+                                if 'GERENTE' in cargo.upper() and leg != legajo_gg}
+
                     rows_gg = []
-                    # Obtener legajos de SubGerentes desde acceso_persona.json
-                    legs_sg = {v.get('legajo',''): v['nombre']
-                               for k,v in pa.items()
-                               if v.get('role') == 'SubGerente' and v.get('legajo')}
-                    for legajo, nombre in sorted(legs_sg.items(), key=lambda x: x[1]):
+                    for legajo, cargo in sorted(legs_dir.items(),
+                                                key=lambda x: x[1]):  # ordenar por cargo
                         fila = df[df['Legajo'].astype(str) == str(legajo)]
                         if fila.empty:
                             continue
-                        r     = fila.iloc[0]
+                        r    = fila.iloc[0]
+                        col_n = next((c for c in ['Nombre','Apellidos y Nombres']
+                                      if c in df.columns), None)
+                        nombre_col = str(r.get(col_n, '')).title() if col_n else legajo
                         meta  = safe_float(r.get(col_meta_gg, 0))
                         prog  = min(safe_float(r.get('Prog_visma', 0)), meta)
-                        pct   = round(prog/meta*100,1) if meta > 0 else 0
+                        pct   = round(prog/meta*100, 1) if meta > 0 else 0
                         dp_p  = max(0, int(meta - prog))
-                        cargo = puesto_map_gg.get(str(legajo), 'Sub Gerente')
-                        estado = str(r.get('Estado',''))
+                        estado = str(r.get('Estado', ''))
                         rows_gg.append({
-                            'Nombre':       nombre,
-                            'Cargo':        cargo.title(),
-                            'Meta':         int(meta),
-                            'Prog.':        int(prog),
-                            '% Avance':     f"{pct}%",
-                            'Dias x prog.': dp_p,
-                            'Estado':       emo(estado) if estado else ''
+                            'Nombre':        nombre_col,
+                            'Cargo':         cargo.title(),
+                            'Meta (días)':   int(meta),
+                            'Prog. (días)':  int(prog),
+                            '% Avance':      f"{pct}%",
+                            'Días x prog.':  dp_p,
+                            'Estado':        emo(estado) if estado else ''
                         })
                     if rows_gg:
-                        rgg = pd.DataFrame(rows_gg).sort_values('Dias x prog.', ascending=False)
-                        st.dataframe(rgg, use_container_width=True, hide_index=True, height=420)
+                        rgg = pd.DataFrame(rows_gg).sort_values('Días x prog.',
+                                                                  ascending=False)
+                        st.dataframe(rgg, use_container_width=True,
+                                     hide_index=True, height=450)
             elif col_area and col_dp:
                 st.markdown("### Top 10 áreas con mayor días pendientes por programar")
                 usar_grupo = (
