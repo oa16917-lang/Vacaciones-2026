@@ -343,6 +343,12 @@ def cargar_area_sistema():
                   .drop_duplicates('Legajo'))
         result = result.merge(puesto, on='Legajo', how='left')
 
+        # Normalizar nombres de area con variaciones conocidas
+        area_alias = {
+            'SWISSOTEL': 'SUBTERRANEO SWISSOTEL',
+        }
+        result['AREA_FINAL'] = result['AREA_FINAL'].replace(area_alias)
+
         area_map   = result.dropna(subset=['AREA_FINAL']).set_index('Legajo')['AREA_FINAL'].to_dict()
         sede_map   = result.dropna(subset=['SEDE_SYS']).set_index('Legajo')['SEDE_SYS'].to_dict()
         puesto_map = result.dropna(subset=['PUESTO']).set_index('Legajo')['PUESTO'].to_dict()
@@ -520,6 +526,17 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
         df['Jefe']          = df[col_a_adm].map(area_to_jefe)
         df['Sub_Gerente']   = df[col_a_adm].map(area_to_subger)
         df['Gerente']       = df[col_a_adm].map(area_to_gerente)
+
+        # Fallback: si area no tiene Administrador pero si tiene Jefe,
+        # usar el Jefe como Administrador (el Jefe es responsable directo)
+        mask_sin_admin = df['Administrador'].isna()
+        df.loc[mask_sin_admin, 'Administrador'] = df.loc[mask_sin_admin, col_a_adm].map(area_to_jefe)
+
+        # Si tampoco tiene Jefe pero tiene SubGerente,
+        # usar SubGerente como Administrador (responsable directo del area)
+        mask_sin_admin2 = df['Administrador'].isna()
+        df.loc[mask_sin_admin2, 'Administrador'] = df.loc[mask_sin_admin2, col_a_adm].map(area_to_subger)
+
     else:
         for col in ['Administrador','Jefe','Sub_Gerente','Gerente']:
             if col not in df.columns:

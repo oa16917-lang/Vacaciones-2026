@@ -4,7 +4,10 @@
     "nombre": "Fernando Gomez",
     "password": "08208079",
     "areas": [],
-    "legajo": "1008208079"
+    "legajo": "1008208079",
+    "admin_areas": [
+      "ROL PRIVADO"
+    ]
   },
   "azamudio@apparka.pe": {
     "role": "SubGerente",
