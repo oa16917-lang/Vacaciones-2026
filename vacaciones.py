@@ -327,10 +327,13 @@ def cargar_area_sistema():
                   .merge(sede, on='Legajo', how='left'))
 
         # Regla de prioridad: CECO > PCES > AREA
-        # CECO = area funcional real (back office, admin, soporte)
-        # PCES = estacionamiento del operativo de campo
-        # AREA = fallback si no tiene ninguno
-        result['AREA_FINAL'] = (result['CECO']
+        # EXCEPCION: si CECO contiene 'VACAC' o 'RETEN' es un codigo temporal,
+        # no es el area real -> ignorarlo y usar PCES o AREA en su lugar
+        ceco_valido = result['CECO'].copy()
+        mask_vacac  = ceco_valido.astype(str).str.upper().str.contains('VACAC|RETEN', na=False)
+        ceco_valido[mask_vacac] = None  # descartar CECO invalido
+
+        result['AREA_FINAL'] = (ceco_valido
                                 .fillna(result['PCES'])
                                 .fillna(result['AREA_SYS']))
 
@@ -464,11 +467,13 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
     area_to_gerente = {}  # area -> nombre Gerente
 
     if pa:
-        # Administradores: sus areas directas
+        # Construir mapa area -> jerarquia desde acceso_persona.json
         for email, uinfo in pa.items():
             nombre = uinfo.get('nombre','')
             if not nombre: continue
             role_u = uinfo.get('role','')
+
+            # Areas de acceso segun rol
             for ar in uinfo.get('areas',[]):
                 if not ar or str(ar) in ('nan','None','NaN'): continue
                 if role_u == 'Administrador':
@@ -480,20 +485,34 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                 elif role_u == 'Gerente':
                     area_to_gerente[ar] = nombre
 
-        # Para areas que tienen Admin pero no Jefe/SubGerente,
-        # completar desde jerarquia.csv usando Admin como puente
+            # admin_areas: areas que administra directamente aunque tenga otro rol de acceso
+            # (ej: Oswaldo tiene role=RRHH pero administra ADM. RH)
+            for ar in uinfo.get('admin_areas', []):
+                if not ar or str(ar) in ('nan','None','NaN'): continue
+                if ar not in area_to_admin:
+                    area_to_admin[ar] = nombre
+
+        # Completar Jefe/SubGerente/Gerente desde jerarquia.csv usando Admin como puente
         df_jer = cargar_tabla_jerarquia()
         if not df_jer.empty:
-            jer_uniq = df_jer[['Gerente','Sub_Gerente','Jefe','Administrador']].drop_duplicates('Administrador')
+            # Casos donde Jefe == Administrador: esa persona es su propio nivel
+            # En ese caso NO propagar como Jefe (evitar que aparezca dos veces)
+            jer_rows = df_jer[['Gerente','Sub_Gerente','Jefe','Administrador']].copy()
+            # Mapa Admin -> {Jefe, SubGerente, Gerente} - usando primera aparicion
+            jer_uniq = jer_rows.drop_duplicates('Administrador')
             jer_map  = jer_uniq.set_index('Administrador').to_dict('index')
             for ar, adm in area_to_admin.items():
-                entry = jer_map.get(adm, {})
-                if ar not in area_to_jefe    and entry.get('Jefe'):
-                    area_to_jefe[ar]    = entry['Jefe']
-                if ar not in area_to_subger  and entry.get('Sub_Gerente'):
-                    area_to_subger[ar]  = entry['Sub_Gerente']
-                if ar not in area_to_gerente and entry.get('Gerente'):
-                    area_to_gerente[ar] = entry['Gerente']
+                entry = jer_map.get(str(adm), {})
+                jefe_csv  = entry.get('Jefe','')
+                subg_csv  = entry.get('Sub_Gerente','')
+                ger_csv   = entry.get('Gerente','')
+                # Solo asignar Jefe si es distinto al Administrador
+                if ar not in area_to_jefe and jefe_csv and jefe_csv != adm:
+                    area_to_jefe[ar] = jefe_csv
+                if ar not in area_to_subger and subg_csv and subg_csv != adm:
+                    area_to_subger[ar] = subg_csv
+                if ar not in area_to_gerente and ger_csv:
+                    area_to_gerente[ar] = ger_csv
 
     # Asignar columnas al dataframe
     if col_a_adm:

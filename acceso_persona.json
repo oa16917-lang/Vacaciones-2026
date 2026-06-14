@@ -1324,7 +1324,11 @@
     "nombre": "Oswaldo Aguirre",
     "password": "45077315",
     "areas": [],
-    "legajo": "1045077315"
+    "legajo": "1045077315",
+    "admin_areas": [
+      "ADM. RH",
+      "BIENESTAR SOCIAL"
+    ]
   },
   "acerron@apparka.pe": {
     "role": "Jefe",
