@@ -486,13 +486,13 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                     area_to_admin[ar] = nombre
                 elif role_u == 'Jefe':
                     area_to_jefe[ar] = nombre
-                elif role_u == 'SubGerente':
+                elif role_u in ('SubGerente', 'GerenteGeneral'):
                     area_to_subger[ar] = nombre
                 elif role_u == 'Gerente':
                     area_to_gerente[ar] = nombre
 
             # admin_areas: areas que administra directamente aunque tenga otro rol de acceso
-            # (ej: Oswaldo tiene role=RRHH pero administra ADM. RH)
+            # (ej: Oswaldo=RRHH administra ADM. RH; Fernando=GerenteGeneral administra ROL PRIVADO)
             for ar in uinfo.get('admin_areas', []):
                 if not ar or str(ar) in ('nan','None','NaN'): continue
                 if ar not in area_to_admin:
@@ -527,15 +527,17 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
         df['Sub_Gerente']   = df[col_a_adm].map(area_to_subger)
         df['Gerente']       = df[col_a_adm].map(area_to_gerente)
 
-        # Fallback: si area no tiene Administrador pero si tiene Jefe,
-        # usar el Jefe como Administrador (el Jefe es responsable directo)
-        mask_sin_admin = df['Administrador'].isna()
-        df.loc[mask_sin_admin, 'Administrador'] = df.loc[mask_sin_admin, col_a_adm].map(area_to_jefe)
+        # Fallback Admin: Jefe -> SubGerente -> Gerente (en ese orden)
+        mask = df['Administrador'].isna()
+        df.loc[mask, 'Administrador'] = df.loc[mask, col_a_adm].map(area_to_jefe)
+        mask = df['Administrador'].isna()
+        df.loc[mask, 'Administrador'] = df.loc[mask, col_a_adm].map(area_to_subger)
+        mask = df['Administrador'].isna()
+        df.loc[mask, 'Administrador'] = df.loc[mask, col_a_adm].map(area_to_gerente)
 
-        # Si tampoco tiene Jefe pero tiene SubGerente,
-        # usar SubGerente como Administrador (responsable directo del area)
-        mask_sin_admin2 = df['Administrador'].isna()
-        df.loc[mask_sin_admin2, 'Administrador'] = df.loc[mask_sin_admin2, col_a_adm].map(area_to_subger)
+        # Fallback Jefe: si no hay Jefe, usar el Administrador que ya se asigno
+        mask_jefe = df['Jefe'].isna()
+        df.loc[mask_jefe, 'Jefe'] = df.loc[mask_jefe, 'Administrador']
 
     else:
         for col in ['Administrador','Jefe','Sub_Gerente','Gerente']:
