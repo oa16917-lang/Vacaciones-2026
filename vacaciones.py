@@ -614,21 +614,44 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
 
     col_meta = next((c for c in ['Meta2026'] if c in df.columns), None)
 
-    # Pre-calcular: {legajo: [(fecha, dias), ...]} todos los registros aprobados
-    # Incluye 2025 y anteriores para verificar dias gozados antes de fecha limite
-    # (ej: meta 2024 que vence en enero 2026 pero se gozó en 2025)
-    registros_visma = {}
+    # Pre-calcular registros Visma por legajo (todos los años aprobados/pendientes)
+    # registros_visma     = {legajo: [(fecha, dias), ...]}  -- sin periodo
+    # registros_visma_per = {legajo: {periodo_int: [(fecha, dias), ...]}} -- con periodo
+    registros_visma     = {}
+    registros_visma_per = {}
     if not df_visma.empty:
         v_todos = df_visma[
             df_visma['Estado aus'].isin(['Aprobada','Pendiente'])
         ].copy()
         for _, vrow in v_todos.iterrows():
-            vleg  = str(vrow['Legajo']).replace('.0','').strip()
-            vfech = vrow['Fecha desde']
-            vdias = safe_float(vrow.get('Cant dias', 0))
+            vleg    = str(vrow['Legajo']).replace('.0','').strip()
+            vfech   = vrow['Fecha desde']
+            vdias   = safe_float(vrow.get('Cant dias', 0))
+            vper    = vrow.get('Periodo', None)
+            vper_i  = int(vper) if pd.notna(vper) else None
+            # Sin periodo
             if vleg not in registros_visma:
                 registros_visma[vleg] = []
             registros_visma[vleg].append((vfech, vdias))
+            # Con periodo
+            if vper_i:
+                if vleg not in registros_visma_per:
+                    registros_visma_per[vleg] = {}
+                if vper_i not in registros_visma_per[vleg]:
+                    registros_visma_per[vleg][vper_i] = []
+                registros_visma_per[vleg][vper_i].append((vfech, vdias))
+
+    # Construir mapa legajo -> fecha de ingreso real (ultima alta activa)
+    # Para calcular aniversario y vencimiento por periodo
+    fecha_ingreso_map = {}
+    if df_ab is not None and not df_ab.empty and 'Fecha_alta' in df_ab.columns:
+        # Ordenar por fecha_alta descendente y tomar la mas reciente activa
+        ab_activos = df_ab[df_ab['Estado']=='Activo'].copy()
+        ab_activos = ab_activos.sort_values('Fecha_alta', ascending=False)
+        for leg_ab, grupo in ab_activos.groupby('Legajo'):
+            primera = grupo.iloc[0]
+            if pd.notna(primera['Fecha_alta']):
+                fecha_ingreso_map[str(leg_ab)] = primera['Fecha_alta'].date()
 
     estados,vencidos_r,fechas_l,dias_rest,pcts = [],[],[],[],[]
     for _, row in df.iterrows():
@@ -675,13 +698,49 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                     # Si fl ya paso y habia deuda -> VENCIDO
                     # Los dias gozados despues del vencimiento no saldan la deuda anterior
                     regs = registros_visma.get(leg, [])
-                    # Solo contar dias gozados DESPUES de la fecha limite
-                    # Si gozo despues, esos dias son de otro periodo, no saldan este
-                    prog_despues = sum(d for f, d in regs
-                                       if pd.notna(f) and f.date() > fl)
-                    # La deuda es el numero del comentario (ya descontado lo gozado antes)
-                    # Si ademas gozo despues, esos dias no reducen la deuda vencida
-                    venc = dd  # deuda exacta segun el META
+                    # Usar fecha de ingreso para determinar si completo el periodo
+                    fi = fecha_ingreso_map.get(leg)
+                    if fi:
+                        # Logica por periodo:
+                        # Cada periodo = 30 dias (ley peruana)
+                        # Periodo N vence el dia antes del aniversario N+2
+                        # Ej: ingreso 16/03/2023 -> periodo 2024 vence 15/03/2026
+                        # Contar solo dias del periodo correspondiente gozados antes de fl
+                        # El periodo que corresponde a esta fl:
+                        # fl esta dentro del rango [aniv_N, aniv_N+1)
+                        # -> periodo = año del aniversario anterior a fl - 1
+                        from dateutil.relativedelta import relativedelta as rdelta
+                        # Calcular anios cumplidos al llegar a fl
+                        anios_fl = relativedelta(fl, fi).years
+                        # El periodo que vence en fl:
+                        # Periodo en Visma = año en que se GANO el periodo (año del aniversario - 1)
+                        # Periodo 2024 = ganado al cumplir 2 años, vence al cumplir 3 años
+                        # Formula: periodo_vence = año_ingreso + años_cumplidos_en_fl - 2
+                        periodo_vence = fi.year + anios_fl - 2
+                        # Dias del periodo correspondiente (segun campo Periodo de Visma)
+                        # Si registros_visma tiene periodo, usarlo; sino usar todos antes de fl
+                        # registros_visma = [(fecha, dias), ...] sin campo periodo
+                        # Usar una ventana temporal: desde aniversario_periodo hasta fl
+                        aniv_inicio_periodo = fi + rdelta(years=anios_fl - 1)
+                        # Dias gozados con Fecha desde en el rango del periodo
+                        # O simplemente: dias gozados antes de fl que sean del periodo
+                        # Aproximacion: dias gozados antes de fl (incluye periodos anteriores)
+                        # Para ser preciso necesitamos el campo Periodo de Visma
+                        # Usar registros_visma_con_periodo si existe, sino fallback
+                        regs_periodo = registros_visma_per.get(leg, {}).get(periodo_vence, [])
+                        if regs_periodo:
+                            # Tenemos datos por periodo: usar solo dias de ese periodo
+                            dias_periodo_antes = sum(
+                                d for f, d in regs_periodo if pd.notna(f) and f.date() <= fl
+                            )
+                        else:
+                            # Fallback: usar todos los dias gozados antes de fl
+                            dias_periodo_antes = sum(
+                                d for f, d in regs if pd.notna(f) and f.date() <= fl
+                            )
+                        venc = max(0, 30 - dias_periodo_antes)
+                    else:
+                        venc = dd
             # VENCIDO: solo cuando realmente tiene días sin gozar después de la fecha límite
             if venc>0:                              estado='VENCIDO'
             elif fl and dias_r<=30 and dias_x>0:   estado='CRITICO'
