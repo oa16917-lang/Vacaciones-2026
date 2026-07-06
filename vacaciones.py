@@ -778,6 +778,11 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                 return max(0, debia - prog_ref)
         return safe_float(r.get('Dias_x_prog', 0))
     df['Dias_x_vencer'] = df.apply(calc_dias_x_vencer, axis=1)
+    # Si el estado es VENCIDO, Dias_x_vencer = los dias vencidos (no la meta futura)
+    # No pueden coexistir VENCIDO con dias x vencer de otra meta
+    if 'Estado' in df.columns and 'Vencidos_real' in df.columns:
+        mask_vencido = df['Estado'] == 'VENCIDO'
+        df.loc[mask_vencido, 'Dias_x_vencer'] = df.loc[mask_vencido, 'Vencidos_real']
     return df
 
 def filtrar_usuario(df, user_email, pa):
@@ -1208,35 +1213,84 @@ def main():
     # ── ALERTAS ────────────────────────────────────────────────────────────────
     elif pagina == "🔔 Centro de Alertas":
         st.markdown("## Centro de Alertas")
-        df_v = df[df['Estado']=='VENCIDO'].copy()   if 'Estado' in df.columns else df.head(0)
+
+        # Selector de año para vencidos (solo RRHH puede ver otros años)
+        anio_actual = hoy.year
+        if role == 'RRHH':
+            col_anio, _ = st.columns([1, 3])
+            anio_venc = col_anio.selectbox(
+                "📅 Ver vencimientos del año",
+                options=list(range(anio_actual - 1, anio_actual + 2)),
+                index=1,
+                help="Filtra colaboradores cuyo periodo vence en este año"
+            )
+        else:
+            anio_venc = anio_actual
+
+        # Recalcular vencidos para el año seleccionado
+        # Si es el año actual, usar el Estado ya calculado
+        # Si es otro año, recalcular vencimientos para ese año especifico
+        if anio_venc == anio_actual:
+            df_v = df[df['Estado']=='VENCIDO'].copy() if 'Estado' in df.columns else df.head(0)
+        else:
+            # Recalcular para el año seleccionado
+            def venc_para_anio(row, anio_sel):
+                leg = str(row['Legajo'])
+                fi  = fecha_ingreso_map.get(leg)
+                if not fi: return 0
+                anios_chk = relativedelta(date(anio_sel, 12, 31), fi).years
+                venc_anio = 0
+                for n in range(1, anios_chk + 1):
+                    fl_n = fi + relativedelta(years=n+1) - relativedelta(days=1)
+                    if fl_n.year != anio_sel: continue
+                    periodo_n = fi.year + n - 1
+                    regs_n = registros_visma_per.get(leg, {}).get(periodo_n, [])
+                    if not regs_n: continue
+                    total_n = sum(d for f, d in regs_n if pd.notna(f))
+                    gozados_antes = sum(d for f, d in regs_n
+                                        if pd.notna(f) and f.date() < fl_n)
+                    if gozados_antes < total_n:
+                        venc_anio = max(venc_anio, total_n - gozados_antes)
+                return venc_anio
+            df_v = df.copy()
+            df_v['_venc_anio'] = df_v.apply(lambda r: venc_para_anio(r, anio_venc), axis=1)
+            df_v = df_v[df_v['_venc_anio'] > 0].copy()
+            df_v['Vencidos_real'] = df_v['_venc_anio']
+
         df_c = df[df['Estado']=='CRITICO'].copy()   if 'Estado' in df.columns else df.head(0)
         df_r = df[df['Estado']=='EN_RIESGO'].copy() if 'Estado' in df.columns else df.head(0)
 
         c1,c2,c3 = st.columns(3)
-        c1.metric("🔴 Vencidos",          len(df_v))
-        c2.metric("🟠 Críticos ≤30 días", len(df_c))
-        c3.metric("🟡 En riesgo ≤90 días",len(df_r))
+        c1.metric(f"🔴 Vencidos {anio_venc}",   len(df_v))
+        c2.metric("🟠 Críticos ≤30 días",        len(df_c))
+        c3.metric("🟡 En riesgo ≤90 días",       len(df_r))
 
-        # En alertas: usar Dias_x_vencer = dias que faltan segun comentario vs Visma
-        # Es mas preciso que Dias_x_prog (meta total) para casos con compromisos parciales
-        # cols_a: Dias_x_prog (meta total pendiente) y Dias_x_vencer (compromiso pendiente)
-        # Se omite 'Dias restantes' (dias calendario) para evitar confusion
+        # Columnas para alertas
+        # VENCIDOS: no mostrar Dias_x_vencer (no aplica cuando ya esta vencido)
+        cols_v = [c for c in ['Legajo',col_nom,col_area,col_jefe,'Vencidos_real',
+                               col_dp,'Fecha límite','Estado','Comentario_ind']
+                  if c and c in df_v.columns]
+        # CRITICOS/EN_RIESGO: mostrar Dias_x_vencer (dias que faltan de la meta)
         cols_a = [c for c in ['Legajo',col_nom,col_area,col_jefe,'Vencidos_real',
                                col_dp,'Dias_x_vencer','Fecha límite',
                                'Estado','Comentario_ind']
                   if c and c in df.columns]
+        rename_v = {
+            col_dp:          'Días x programar',
+            'Vencidos_real': 'Días vencidos',
+        }
         rename_alertas = {
-            col_dp:          'Días x programar',  # meta total - Visma
-            'Dias_x_vencer': 'Días x vencer',      # compromiso comentario - Visma
+            col_dp:          'Días x programar',
+            'Dias_x_vencer': 'Días x vencer',
             'Vencidos_real': 'Días vencidos',
         }
 
         st.markdown("---")
-        st.markdown("### 🔴 Días vencidos — riesgo de indemnización")
+        st.markdown(f"### 🔴 Días vencidos {anio_venc} — riesgo de indemnización")
         if not df_v.empty:
-            show = df_v[cols_a].copy().sort_values('Vencidos_real',ascending=False)
-            show['Estado'] = show['Estado'].apply(emo)
-            show = show.rename(columns=rename_alertas)
+            show = df_v[cols_v].copy().sort_values('Vencidos_real',ascending=False)
+            show['Estado'] = show['Estado'].apply(emo) if 'Estado' in show.columns else show['Estado']
+            show = show.rename(columns=rename_v)
             st.dataframe(show, use_container_width=True, hide_index=True)
             if role=='RRHH':
                 st.markdown("**Marcar como ignorado** (ya gestionado por fuera):")
