@@ -703,39 +703,37 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                 # NO usar el campo Periodo de Visma (puede estar incorrecto)
                 # Año laboral N: desde aniversario N hasta aniversario N+1 - 1 dia
                 # Fecha limite para gozarlo: aniversario N+2 - 1 dia
-                regs_todos = registros_visma.get(leg, [])  # todos los registros sin Periodo
-                anios_hoy  = relativedelta(hoy, fi).years
-
-                for n in range(1, anios_hoy + 1):
-                    fl_n = fi + relativedelta(years=n+1) - relativedelta(days=1)
-                    # Solo años laborales que ya vencieron en el año actual
-                    if fl_n.year != hoy.year: continue
-                    if fl_n >= hoy:           continue
-
-                    inicio_anio = fi + relativedelta(years=n)
-
-                    # Estrategia: contar dias gozados en la ventana [inicio_anio, fl_n]
-                    # Pero algunos pueden haber gozado ANTES del inicio_anio (anticipos)
-                    # Para cubrir ese caso, tambien contar dias gozados entre
-                    # el inicio del periodo anterior y inicio_anio (anticipos al periodo)
-                    inicio_prev = fi + relativedelta(years=n-1)  # inicio periodo anterior
-                    gozados_ventana  = sum(
-                        d for f, d in regs_todos
-                        if pd.notna(f) and inicio_anio <= f.date() <= fl_n
-                    )
-                    gozados_anticipo = sum(
-                        d for f, d in regs_todos
-                        if pd.notna(f) and inicio_prev <= f.date() < inicio_anio
-                    )
-                    # Total disponible para cubrir este periodo
-                    # (lo gozado en la ventana + anticipos del periodo anterior)
-                    total_disponible = gozados_ventana + gozados_anticipo
-
-                    # Si no hay ningun registro cercano, omitir (sin datos)
-                    if total_disponible == 0: continue
-
-                    if total_disponible < 30:
-                        venc = max(venc, 30 - total_disponible)
+                # Vencimiento legal: basado en el comentario del META
+                # El META de Visma ya calcula la deuda por periodo correctamente
+                # 'DEBE GOZAR X DIAS ANTES DEL DD/MM/AAAA' = deuda exacta del periodo
+                md_venc = re.search(r'DEBE GOZAR (\d+)', com.upper())
+                if md_venc:
+                    dd_venc = int(md_venc.group(1))
+                    fl_venc = fecha_limite(com)
+                    if fl_venc and fl_venc < hoy and dd_venc > 0:
+                        # Verificar si gozo los dias pendientes antes de fl_venc
+                        regs_leg = registros_visma.get(leg, [])
+                        # Dias gozados DESPUES del META y ANTES de fl_venc
+                        # (podria haber completado antes del vencimiento)
+                        # Como no sabemos la fecha exacta del META, usamos fl_venc como corte
+                        # Si el total antes de fl_venc >= lo que debia (aprox de Visma historico):
+                        # Calcular total historico antes de fl_venc
+                        total_antes = sum(d for f, d in regs_leg
+                                          if pd.notna(f) and f.date() < fl_venc)
+                        # La meta del periodo = total_antes + dd_venc (lo que faltaba)
+                        meta_periodo = total_antes + dd_venc
+                        # Si meta es muy baja (part-time con pocos dias) o muy alta (error)
+                        # usar el dd_venc directamente como la deuda
+                        # Solo es VENCIDO si no completo el periodo antes de fl_venc
+                        total_periodo_visma = sum(d for f, d in regs_leg if pd.notna(f))
+                        if total_antes < meta_periodo:
+                            # Verificar si lo gozo despues (llegó tarde)
+                            total_despues = sum(d for f, d in regs_leg
+                                                if pd.notna(f) and f.date() >= fl_venc)
+                            # Si gozo suficiente despues como para cubrir dd_venc -> llego tarde pero cumplio
+                            # Si no gozo nada o insuficiente -> VENCIDO
+                            if total_despues < dd_venc:
+                                venc = dd_venc - total_despues
 
             # ── META DE PROGRAMACION APPARKA (independiente del vencimiento) ──
             # Fuente: comentario del META "DEBE GOZAR X DIAS ANTES DEL DD/MM/AAAA"
