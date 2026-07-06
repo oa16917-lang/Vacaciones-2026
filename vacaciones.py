@@ -671,13 +671,17 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                 md = re.search(r'DEBE GOZAR (\d+)', com.upper())
                 if md:
                     dd = int(md.group(1))
-                    # Contar solo dias gozados ANTES O EN la fecha limite
-                    # (no contar dias programados despues del vencimiento)
+                    # El numero del comentario ES la deuda pendiente al momento del META
+                    # Si fl ya paso y habia deuda -> VENCIDO
+                    # Los dias gozados despues del vencimiento no saldan la deuda anterior
                     regs = registros_visma.get(leg, [])
-                    prog_antes = sum(d for f, d in regs
-                                     if pd.notna(f) and f.date() <= fl)
-                    if prog_antes < dd:
-                        venc = max(0, dd - prog_antes)
+                    # Solo contar dias gozados DESPUES de la fecha limite
+                    # Si gozo despues, esos dias son de otro periodo, no saldan este
+                    prog_despues = sum(d for f, d in regs
+                                       if pd.notna(f) and f.date() > fl)
+                    # La deuda es el numero del comentario (ya descontado lo gozado antes)
+                    # Si ademas gozo despues, esos dias no reducen la deuda vencida
+                    venc = dd  # deuda exacta segun el META
             # VENCIDO: solo cuando realmente tiene días sin gozar después de la fecha límite
             if venc>0:                              estado='VENCIDO'
             elif fl and dias_r<=30 and dias_x>0:   estado='CRITICO'
@@ -715,15 +719,21 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
         md   = re.search(r'DEBE GOZAR (\d+)', com.upper())
         if md:
             debia = int(md.group(1))
-            # Usar dias gozados antes de la fecha limite (todos los años)
             fl    = fecha_limite(com)
+            regs  = registros_visma.get(leg, [])
             if fl:
-                regs       = registros_visma.get(leg, [])
-                prog_antes = sum(d for f, d in regs
-                                 if pd.notna(f) and f.date() <= fl)
+                if fl < hoy:
+                    # Fecha ya paso: el numero del comentario ES la deuda
+                    # (ya incorpora lo que habia gozado antes al exportar el META)
+                    return debia
+                else:
+                    # Fecha futura: debia - dias gozados hasta hoy
+                    prog_ref = sum(d for f, d in regs
+                                   if pd.notna(f) and f.date() <= hoy)
+                    return max(0, debia - prog_ref)
             else:
-                prog_antes = safe_float(r.get('Prog_visma', 0))
-            return max(0, debia - prog_antes)
+                prog_ref = safe_float(r.get('Prog_visma', 0))
+                return max(0, debia - prog_ref)
         return safe_float(r.get('Dias_x_prog', 0))
     df['Dias_x_vencer'] = df.apply(calc_dias_x_vencer, axis=1)
     return df
