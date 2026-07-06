@@ -194,12 +194,32 @@ def cargar_visma():
     if not archivo_visma:
         return pd.DataFrame()
     try:
-        v = pd.read_excel(archivo_visma, header=2)
-        v.columns = ['Legajo','_x','Apellidos y Nombre','Estado','Fecha desde',
+        # Detectar fila de header: buscar la que tiene 'Legajo' como primera celda con datos
+        header_row = 2  # default
+        for h in [2, 3, 1, 4]:
+            try:
+                test = pd.read_excel(archivo_visma, header=h, nrows=1)
+                primera = str(test.columns[0]).strip().lower()
+                if primera == 'legajo':
+                    header_row = h
+                    break
+                # A veces el header esta una fila despues (cols unnamed)
+                if 'legajo' in [str(c).strip().lower() for c in test.iloc[0].tolist()]:
+                    header_row = h + 1
+                    break
+            except:
+                pass
+
+        v = pd.read_excel(archivo_visma, header=header_row)
+        # Renombrar por posicion (tolerante a variaciones de nombre)
+        cols_base = ['Legajo','_x','Apellidos y Nombre','Estado','Fecha desde',
                      'Fecha hasta','Cant dias','_2','Tipo dia','Periodo',
                      'Origen','Estado aus','Anticipo']
-        v = v[v['Legajo'].notna() & (v['Legajo']!='Legajo')].copy()
+        if len(v.columns) >= len(cols_base):
+            v.columns = cols_base + list(v.columns[len(cols_base):])
+        v = v[v['Legajo'].notna() & (v['Legajo'].astype(str).str.strip()!='Legajo')].copy()
         v['Legajo']      = v['Legajo'].astype(str).str.replace('.0','',regex=False).str.strip()
+        v = v[v['Legajo'].str.match(r'^[0-9]+$')]
         v['Fecha desde'] = pd.to_datetime(v['Fecha desde'], dayfirst=True, errors='coerce')
         v['Fecha hasta'] = pd.to_datetime(v['Fecha hasta'], dayfirst=True, errors='coerce')
         v['Cant dias']   = pd.to_numeric(v['Cant dias'], errors='coerce').fillna(0)
