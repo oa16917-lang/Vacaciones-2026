@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 import json, re, calendar, math
 from datetime import date, datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from io import BytesIO
 
 AZUL    = "#1B1462"
@@ -709,7 +710,6 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                         # El periodo que corresponde a esta fl:
                         # fl esta dentro del rango [aniv_N, aniv_N+1)
                         # -> periodo = año del aniversario anterior a fl - 1
-                        from dateutil.relativedelta import relativedelta as rdelta
                         # Calcular anios cumplidos al llegar a fl
                         anios_fl = relativedelta(fl, fi).years
                         # El periodo que vence en fl:
@@ -721,7 +721,7 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                         # Si registros_visma tiene periodo, usarlo; sino usar todos antes de fl
                         # registros_visma = [(fecha, dias), ...] sin campo periodo
                         # Usar una ventana temporal: desde aniversario_periodo hasta fl
-                        aniv_inicio_periodo = fi + rdelta(years=anios_fl - 1)
+                        aniv_inicio_periodo = fi + relativedelta(years=anios_fl - 1)
                         # Dias gozados con Fecha desde en el rango del periodo
                         # O simplemente: dias gozados antes de fl que sean del periodo
                         # Aproximacion: dias gozados antes de fl (incluye periodos anteriores)
