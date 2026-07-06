@@ -711,10 +711,19 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
     # Esto es mas preciso que Dias_x_prog para las alertas
     def calc_dias_x_vencer(r):
         com  = str(r.get('Comentario_ind','') or '')
-        prog = safe_float(r.get('Prog_visma', 0))
+        leg  = str(r.get('Legajo',''))
         md   = re.search(r'DEBE GOZAR (\d+)', com.upper())
         if md:
-            return max(0, int(md.group(1)) - prog)
+            debia = int(md.group(1))
+            # Usar dias gozados antes de la fecha limite (todos los años)
+            fl    = fecha_limite(com)
+            if fl:
+                regs       = registros_visma.get(leg, [])
+                prog_antes = sum(d for f, d in regs
+                                 if pd.notna(f) and f.date() <= fl)
+            else:
+                prog_antes = safe_float(r.get('Prog_visma', 0))
+            return max(0, debia - prog_antes)
         return safe_float(r.get('Dias_x_prog', 0))
     df['Dias_x_vencer'] = df.apply(calc_dias_x_vencer, axis=1)
     return df
