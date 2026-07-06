@@ -1199,7 +1199,7 @@ def main():
 
         st.markdown("### 🟠 Críticos — vencen en menos de 30 días")
         if not df_c.empty:
-            show = df_c[cols_a].copy().sort_values('Dias restantes')
+            show = df_c[cols_a].copy().sort_values('Fecha límite')
             show['Estado'] = show['Estado'].apply(emo)
             show = show.rename(columns=rename_alertas)
             st.dataframe(show, use_container_width=True, hide_index=True)
@@ -1208,7 +1208,7 @@ def main():
 
         st.markdown("### 🟡 En riesgo — vencen en 30–90 días")
         if not df_r.empty:
-            show = df_r[cols_a].copy().sort_values('Dias restantes')
+            show = df_r[cols_a].copy().sort_values('Fecha límite')
             show['Estado'] = show['Estado'].apply(emo)
             show = show.rename(columns=rename_alertas)
             st.dataframe(show, use_container_width=True, hide_index=True)
