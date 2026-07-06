@@ -642,21 +642,24 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                     registros_visma_per[vleg][vper_i] = []
                 registros_visma_per[vleg][vper_i].append((vfech, vdias))
 
-    # Construir mapa legajo -> fecha de ingreso real (ultima alta activa)
-    # Para calcular aniversario y vencimiento por periodo
+    # Construir mapa legajo -> fecha de ingreso (la mas reciente activa)
+    # Si fue cesado y reingreso, sus vacaciones se liquidaron y empiezan de cero
     fecha_ingreso_map = {}
     if df_ab is not None and not df_ab.empty and 'Fecha_alta' in df_ab.columns:
-        # Ordenar por fecha_alta descendente y tomar la mas reciente activa
-        ab_activos = df_ab[df_ab['Estado']=='Activo'].copy()
-        ab_activos = ab_activos.sort_values('Fecha_alta', ascending=False)
-        for leg_ab, grupo in ab_activos.groupby('Legajo'):
-            primera = grupo.iloc[0]
+        ab_validos = df_ab[df_ab['Fecha_alta'].notna()].copy()
+        # Normalizar legajo igual que en el resto del sistema
+        ab_validos['Legajo'] = (ab_validos['Legajo'].astype(str)
+                                .str.replace('.0','',regex=False).str.strip())
+        ab_validos = ab_validos[ab_validos['Legajo'].str.match(r'^[0-9]+$')]
+        ab_validos = ab_validos.sort_values('Fecha_alta', ascending=False)
+        for leg_ab, grupo in ab_validos.groupby('Legajo'):
+            primera = grupo.iloc[0]  # la mas reciente activa
             if pd.notna(primera['Fecha_alta']):
                 fecha_ingreso_map[str(leg_ab)] = primera['Fecha_alta'].date()
 
     estados,vencidos_r,fechas_l,dias_rest,pcts = [],[],[],[],[]
     for _, row in df.iterrows():
-        leg       = str(row['Legajo'])
+        leg       = str(row['Legajo']).replace('.0','').strip()
         com       = str(row.get('Comentario_ind','') or '')
         meta      = safe_float(row.get(col_meta) if col_meta else None)
         prog      = safe_float(row.get('Prog_visma'))
@@ -696,25 +699,35 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
             venc = 0
             fi = fecha_ingreso_map.get(leg)
             if fi:
-                # Solo verificar periodos cuya fecha limite cae en 2026
-                # (vencimientos relevantes para el año en curso)
+                # Calcular vencimiento por AÑO LABORAL usando fechas reales
+                # NO usar el campo Periodo de Visma (puede estar incorrecto)
+                # Año laboral N: desde aniversario N hasta aniversario N+1 - 1 dia
+                # Fecha limite para gozarlo: aniversario N+2 - 1 dia
+                regs_todos = registros_visma.get(leg, [])  # todos los registros sin Periodo
                 anios_hoy = relativedelta(hoy, fi).years
                 for n in range(1, anios_hoy + 1):
-                    fl_periodo_n = fi + relativedelta(years=n+1) - relativedelta(days=1)
-                    # Solo periodos que vencen en 2026 y ya pasaron
-                    if fl_periodo_n.year != 2026:
+                    # Fecha limite de este año laboral
+                    fl_n = fi + relativedelta(years=n+1) - relativedelta(days=1)
+                    # Solo años laborales que vencen en el año actual y ya pasaron
+                    if fl_n.year != hoy.year:
                         continue
-                    if fl_periodo_n >= hoy:
-                        continue  # aun no vence este año
-                    periodo_n = fi.year + n - 1  # campo Periodo en Visma
-                    regs_n = registros_visma_per.get(leg, {}).get(periodo_n, [])
-                    if not regs_n:
-                        continue  # sin datos en Visma para este periodo, omitir
-                    total_n      = sum(d for f, d in regs_n if pd.notna(f))
-                    gozados_antes = sum(d for f, d in regs_n
-                                        if pd.notna(f) and f.date() < fl_periodo_n)
-                    if gozados_antes < total_n:
-                        venc = max(venc, total_n - gozados_antes)
+                    if fl_n >= hoy:
+                        continue
+                    # Inicio del año laboral = aniversario N
+                    inicio_anio = fi + relativedelta(years=n)
+                    # Dias gozados cuya fecha de goce cae en el año laboral
+                    # (entre inicio_anio y fl_n inclusive) - por FECHA, no por Periodo
+                    gozados_en_anio = sum(
+                        d for f, d in regs_todos
+                        if pd.notna(f) and inicio_anio <= f.date() <= fl_n
+                    )
+                    # Meta del año laboral = 30 dias por ley
+                    # Pero verificar si hay registros en ese periodo
+                    # Si no gozo nada en el año laboral, omitir (sin datos = sin alerta)
+                    if gozados_en_anio == 0:
+                        continue
+                    if gozados_en_anio < 30:
+                        venc = max(venc, 30 - gozados_en_anio)
 
             # ── META DE PROGRAMACION APPARKA (independiente del vencimiento) ──
             # Fuente: comentario del META "DEBE GOZAR X DIAS ANTES DEL DD/MM/AAAA"
@@ -790,18 +803,19 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
         leg = str(row['Legajo'])
         fi  = fecha_ingreso_map.get(leg)
         if not fi: return 0
+        regs_todos = registros_visma.get(leg, [])
         n_check = relativedelta(date(anio_sig, 12, 31), fi).years
         for n in range(1, n_check + 1):
             fl_n = fi + relativedelta(years=n+1) - relativedelta(days=1)
             if fl_n.year != anio_sig: continue
-            periodo_n = fi.year + n - 1
-            regs_n = registros_visma_per.get(leg, {}).get(periodo_n, [])
-            if not regs_n: continue
-            total_n      = sum(d for f, d in regs_n if pd.notna(f))
-            gozados_antes = sum(d for f, d in regs_n
-                                if pd.notna(f) and f.date() < fl_n)
-            if gozados_antes < total_n:
-                return total_n - gozados_antes
+            inicio_anio = fi + relativedelta(years=n)
+            gozados_en_anio = sum(
+                d for f, d in regs_todos
+                if pd.notna(f) and inicio_anio <= f.date() <= fl_n
+            )
+            if gozados_en_anio == 0: continue
+            if gozados_en_anio < 30:
+                return 30 - gozados_en_anio
         return 0
     df['Venc_anio_sig'] = df.apply(venc_anio_sig, axis=1)
     return df
