@@ -684,6 +684,18 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
             if str(r.get('Estado','')) not in ['CUMPLIDO','SIN_SALDO'] else 0,
             axis=1
         )
+
+    # Calcular Dias_x_vencer: dias que aun debe gozar segun comentario vs Visma
+    # Para CRITICO/VENCIDO: usa los dias del comentario "DEBE GOZAR X DIAS ANTES DEL..."
+    # Esto es mas preciso que Dias_x_prog para las alertas
+    def calc_dias_x_vencer(r):
+        com  = str(r.get('Comentario_ind','') or '')
+        prog = safe_float(r.get('Prog_visma', 0))
+        md   = re.search(r'DEBE GOZAR (\d+)', com.upper())
+        if md:
+            return max(0, int(md.group(1)) - prog)
+        return safe_float(r.get('Dias_x_prog', 0))
+    df['Dias_x_vencer'] = df.apply(calc_dias_x_vencer, axis=1)
     return df
 
 def filtrar_usuario(df, user_email, pa):
@@ -1123,8 +1135,11 @@ def main():
         c2.metric("🟠 Críticos ≤30 días", len(df_c))
         c3.metric("🟡 En riesgo ≤90 días",len(df_r))
 
+        # En alertas: usar Dias_x_vencer = dias que faltan segun comentario vs Visma
+        # Es mas preciso que Dias_x_prog (meta total) para casos con compromisos parciales
+        col_alerta = 'Dias_x_vencer' if 'Dias_x_vencer' in df.columns else col_dp
         cols_a = [c for c in ['Legajo',col_nom,col_area,col_jefe,'Vencidos_real',
-                               col_pend,col_dp,'Fecha límite','Dias restantes',
+                               col_alerta,'Fecha límite','Dias restantes',
                                'Estado','Comentario_ind']
                   if c and c in df.columns]
 
@@ -1140,11 +1155,40 @@ def main():
                 leg_ig = ci1.text_input("Legajo",key="ig_in")
                 if ci2.button("Ignorar") and leg_ig: ignorar(leg_ig); st.rerun()
                 if ci3.button("Restaurar") and leg_ig: restaurar(leg_ig); st.rerun()
-            st.download_button("⬇️ Descargar vencidos", to_excel(df_v),
+            st.download_button("⬇️ Descargar vencidos", to_excel(show),
                 file_name=f"vencidos_{date.today()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.success("Sin días vencidos en tu vista")
+
+        # ── Ignorados: listado descargable ─────────────────────────────────────
+        if role == 'RRHH':
+            ignorados_set = get_ignorados()
+            if ignorados_set:
+                st.markdown("---")
+                st.markdown("### 🚫 Ignorados — gestionados por fuera de RRHH")
+                col_n_ig  = col_nom if col_nom else 'Nombre'
+                cols_ig   = [c for c in ['Legajo', col_n_ig, col_area, col_jefe,
+                                          'Vencidos_real', 'Fecha límite', 'Comentario_ind']
+                             if c and c in df.columns]
+                df_ig = df_full[df_full['Legajo'].astype(str).isin(ignorados_set)].copy()
+                if not df_ig.empty and cols_ig:
+                    show_ig = df_ig[[c for c in cols_ig if c in df_ig.columns]].copy()
+                    st.dataframe(show_ig, use_container_width=True, hide_index=True)
+                    st.download_button(
+                        "⬇️ Descargar ignorados",
+                        to_excel(show_ig),
+                        file_name=f"ignorados_{date.today()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                else:
+                    st.info(f"{len(ignorados_set)} legajos ignorados (sin datos en el sistema)")
+                    st.download_button(
+                        "⬇️ Descargar legajos ignorados",
+                        to_excel(pd.DataFrame({'Legajo': sorted(ignorados_set)})),
+                        file_name=f"ignorados_{date.today()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
         st.markdown("### 🟠 Críticos — vencen en menos de 30 días")
         if not df_c.empty:
