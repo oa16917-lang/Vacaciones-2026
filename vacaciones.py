@@ -1137,17 +1137,24 @@ def main():
 
         # En alertas: usar Dias_x_vencer = dias que faltan segun comentario vs Visma
         # Es mas preciso que Dias_x_prog (meta total) para casos con compromisos parciales
-        col_alerta = 'Dias_x_vencer' if 'Dias_x_vencer' in df.columns else col_dp
+        # cols_a: Dias_x_prog (meta total pendiente) y Dias_x_vencer (compromiso pendiente)
+        # Se omite 'Dias restantes' (dias calendario) para evitar confusion
         cols_a = [c for c in ['Legajo',col_nom,col_area,col_jefe,'Vencidos_real',
-                               col_alerta,'Fecha límite','Dias restantes',
+                               col_dp,'Dias_x_vencer','Fecha límite',
                                'Estado','Comentario_ind']
                   if c and c in df.columns]
+        rename_alertas = {
+            col_dp:          'Días x programar',  # meta total - Visma
+            'Dias_x_vencer': 'Días x vencer',      # compromiso comentario - Visma
+            'Vencidos_real': 'Días vencidos',
+        }
 
         st.markdown("---")
         st.markdown("### 🔴 Días vencidos — riesgo de indemnización")
         if not df_v.empty:
             show = df_v[cols_a].copy().sort_values('Vencidos_real',ascending=False)
             show['Estado'] = show['Estado'].apply(emo)
+            show = show.rename(columns=rename_alertas)
             st.dataframe(show, use_container_width=True, hide_index=True)
             if role=='RRHH':
                 st.markdown("**Marcar como ignorado** (ya gestionado por fuera):")
@@ -1194,6 +1201,7 @@ def main():
         if not df_c.empty:
             show = df_c[cols_a].copy().sort_values('Dias restantes')
             show['Estado'] = show['Estado'].apply(emo)
+            show = show.rename(columns=rename_alertas)
             st.dataframe(show, use_container_width=True, hide_index=True)
         else:
             st.success("Sin críticos")
@@ -1202,8 +1210,9 @@ def main():
         if not df_r.empty:
             show = df_r[cols_a].copy().sort_values('Dias restantes')
             show['Estado'] = show['Estado'].apply(emo)
+            show = show.rename(columns=rename_alertas)
             st.dataframe(show, use_container_width=True, hide_index=True)
-            st.download_button("⬇️ Descargar en riesgo", to_excel(df_r),
+            st.download_button("⬇️ Descargar en riesgo", to_excel(show),
                 file_name=f"riesgo_{date.today()}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
