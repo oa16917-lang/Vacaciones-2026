@@ -614,15 +614,15 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
 
     col_meta = next((c for c in ['Meta2026'] if c in df.columns), None)
 
-    # Pre-calcular: {legajo: [(fecha, dias), ...]} solo registros 2026 aprobados
-    # Para verificar cuantos dias gozaron ANTES de cada fecha limite
+    # Pre-calcular: {legajo: [(fecha, dias), ...]} todos los registros aprobados
+    # Incluye 2025 y anteriores para verificar dias gozados antes de fecha limite
+    # (ej: meta 2024 que vence en enero 2026 pero se gozó en 2025)
     registros_visma = {}
     if not df_visma.empty:
-        v2026_fl = df_visma[
-            (df_visma['Fecha desde'].dt.year==2026) &
-            (df_visma['Estado aus'].isin(['Aprobada','Pendiente']))
+        v_todos = df_visma[
+            df_visma['Estado aus'].isin(['Aprobada','Pendiente'])
         ].copy()
-        for _, vrow in v2026_fl.iterrows():
+        for _, vrow in v_todos.iterrows():
             vleg  = str(vrow['Legajo']).replace('.0','').strip()
             vfech = vrow['Fecha desde']
             vdias = safe_float(vrow.get('Cant dias', 0))
