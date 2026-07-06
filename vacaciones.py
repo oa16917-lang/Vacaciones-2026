@@ -690,64 +690,47 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
             elif meta==0 and pend==0:    estado='SIN_SALDO'
             else:                        estado='AL_DIA'
         else:
-            venc=0
-            if fl and fl<hoy:
-                md = re.search(r'DEBE GOZAR (\d+)', com.upper())
-                if md:
-                    dd = int(md.group(1))
-                    # El numero del comentario ES la deuda pendiente al momento del META
-                    # Si fl ya paso y habia deuda -> VENCIDO
-                    # Los dias gozados despues del vencimiento no saldan la deuda anterior
-                    regs = registros_visma.get(leg, [])
-                    # Usar fecha de ingreso para determinar si completo el periodo
-                    fi = fecha_ingreso_map.get(leg)
-                    if fi:
-                        # Logica por periodo:
-                        # Cada periodo = 30 dias (ley peruana)
-                        # Periodo N vence el dia antes del aniversario N+2
-                        # Ej: ingreso 16/03/2023 -> periodo 2024 vence 15/03/2026
-                        # Contar solo dias del periodo correspondiente gozados antes de fl
-                        # El periodo que corresponde a esta fl:
-                        # fl esta dentro del rango [aniv_N, aniv_N+1)
-                        # -> periodo = año del aniversario anterior a fl - 1
-                        # Calcular anios cumplidos al llegar a fl
-                        anios_fl = relativedelta(fl, fi).years
-                        # El periodo que vence en fl:
-                        # Periodo en Visma = año en que se GANO el periodo (año del aniversario - 1)
-                        # Periodo 2024 = ganado al cumplir 2 años, vence al cumplir 3 años
-                        # Formula: periodo_vence = año_ingreso + años_cumplidos_en_fl - 2
-                        periodo_vence = fi.year + anios_fl - 2
-                        # Dias del periodo correspondiente (segun campo Periodo de Visma)
-                        # Si registros_visma tiene periodo, usarlo; sino usar todos antes de fl
-                        # registros_visma = [(fecha, dias), ...] sin campo periodo
-                        # Usar una ventana temporal: desde aniversario_periodo hasta fl
-                        aniv_inicio_periodo = fi + relativedelta(years=anios_fl - 1)
-                        # Dias gozados con Fecha desde en el rango del periodo
-                        # O simplemente: dias gozados antes de fl que sean del periodo
-                        # Aproximacion: dias gozados antes de fl (incluye periodos anteriores)
-                        # Para ser preciso necesitamos el campo Periodo de Visma
-                        # Usar registros_visma_con_periodo si existe, sino fallback
-                        regs_periodo = registros_visma_per.get(leg, {}).get(periodo_vence, [])
-                        if regs_periodo:
-                            # Tenemos datos por periodo: usar solo dias de ese periodo
-                            dias_periodo_antes = sum(
-                                d for f, d in regs_periodo if pd.notna(f) and f.date() <= fl
-                            )
-                        else:
-                            # Fallback: usar todos los dias gozados antes de fl
-                            dias_periodo_antes = sum(
-                                d for f, d in regs if pd.notna(f) and f.date() <= fl
-                            )
-                        venc = max(0, 30 - dias_periodo_antes)
-                    else:
-                        venc = dd
-            # VENCIDO: solo cuando realmente tiene días sin gozar después de la fecha límite
-            if venc>0:                              estado='VENCIDO'
-            elif fl and dias_r<=30 and dias_x>0:   estado='CRITICO'
-            elif fl and dias_r<=90 and dias_x>0:   estado='EN_RIESGO'
-            elif meta>0 and prog>=meta:             estado='CUMPLIDO'
-            elif meta==0 and pend==0:               estado='SIN_SALDO'
-            else:                                   estado='AL_DIA'
+            # ── VENCIMIENTO LEGAL (por periodo/aniversario) ───────────────────
+            # Completamente independiente de la Meta de programacion Apparka
+            # Fuente: fecha_ingreso (altas/bajas) + registros_visma_per (Visma por periodo)
+            venc = 0
+            fi = fecha_ingreso_map.get(leg)
+            if fi:
+                # Calcular cuantos periodos han vencido hasta hoy
+                # Periodo N vence cuando cumple N+2 años (tiene 2 años para gozarlo)
+                # Revisar todos los periodos que ya vencieron
+                anios_hoy = relativedelta(hoy, fi).years
+                for n in range(1, anios_hoy):
+                    # El periodo n vencio al cumplir n+1 años
+                    fl_periodo_n = fi + relativedelta(years=n+1) - relativedelta(days=1)
+                    if fl_periodo_n >= hoy:
+                        continue  # aun no vence
+                    periodo_n = fi.year + n - 1  # campo Periodo en Visma
+                    regs_n = registros_visma_per.get(leg, {}).get(periodo_n, [])
+                    # Meta del periodo: suma total de dias registrados en Visma para ese periodo
+                    # Si no hay registros, asumir 30 dias por ley
+                    total_n = sum(d for f, d in regs_n if pd.notna(f)) if regs_n else 30
+                    # Dias gozados del periodo ANTES de su fecha limite
+                    gozados_antes = sum(d for f, d in regs_n
+                                        if pd.notna(f) and f.date() < fl_periodo_n)
+                    if gozados_antes < total_n:
+                        venc = max(venc, total_n - gozados_antes)
+
+            # ── META DE PROGRAMACION APPARKA (independiente del vencimiento) ──
+            # Fuente: comentario del META "DEBE GOZAR X DIAS ANTES DEL DD/MM/AAAA"
+            # Controla estados CRITICO / EN_RIESGO para gestion operativa
+            if venc > 0:
+                estado = 'VENCIDO'
+            elif fl and dias_r <= 30 and dias_x > 0:
+                estado = 'CRITICO'
+            elif fl and dias_r <= 90 and dias_x > 0:
+                estado = 'EN_RIESGO'
+            elif meta > 0 and prog >= meta:
+                estado = 'CUMPLIDO'
+            elif meta == 0 and pend == 0:
+                estado = 'SIN_SALDO'
+            else:
+                estado = 'AL_DIA'
 
         estados.append(estado); vencidos_r.append(round(venc,1))
         fechas_l.append(str(fl) if fl else '')
