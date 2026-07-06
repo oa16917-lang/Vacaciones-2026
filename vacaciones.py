@@ -696,21 +696,21 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
             venc = 0
             fi = fecha_ingreso_map.get(leg)
             if fi:
-                # Calcular cuantos periodos han vencido hasta hoy
-                # Periodo N vence cuando cumple N+2 años (tiene 2 años para gozarlo)
-                # Revisar todos los periodos que ya vencieron
+                # Solo verificar periodos cuya fecha limite cae en 2026
+                # (vencimientos relevantes para el año en curso)
                 anios_hoy = relativedelta(hoy, fi).years
-                for n in range(1, anios_hoy):
-                    # El periodo n vencio al cumplir n+1 años
+                for n in range(1, anios_hoy + 1):
                     fl_periodo_n = fi + relativedelta(years=n+1) - relativedelta(days=1)
+                    # Solo periodos que vencen en 2026 y ya pasaron
+                    if fl_periodo_n.year != 2026:
+                        continue
                     if fl_periodo_n >= hoy:
-                        continue  # aun no vence
+                        continue  # aun no vence este año
                     periodo_n = fi.year + n - 1  # campo Periodo en Visma
                     regs_n = registros_visma_per.get(leg, {}).get(periodo_n, [])
-                    # Meta del periodo: suma total de dias registrados en Visma para ese periodo
-                    # Si no hay registros, asumir 30 dias por ley
-                    total_n = sum(d for f, d in regs_n if pd.notna(f)) if regs_n else 30
-                    # Dias gozados del periodo ANTES de su fecha limite
+                    if not regs_n:
+                        continue  # sin datos en Visma para este periodo, omitir
+                    total_n      = sum(d for f, d in regs_n if pd.notna(f))
                     gozados_antes = sum(d for f, d in regs_n
                                         if pd.notna(f) and f.date() < fl_periodo_n)
                     if gozados_antes < total_n:
