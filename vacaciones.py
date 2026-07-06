@@ -614,6 +614,22 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
 
     col_meta = next((c for c in ['Meta2026'] if c in df.columns), None)
 
+    # Pre-calcular: {legajo: [(fecha, dias), ...]} solo registros 2026 aprobados
+    # Para verificar cuantos dias gozaron ANTES de cada fecha limite
+    registros_visma = {}
+    if not df_visma.empty:
+        v2026_fl = df_visma[
+            (df_visma['Fecha desde'].dt.year==2026) &
+            (df_visma['Estado aus'].isin(['Aprobada','Pendiente']))
+        ].copy()
+        for _, vrow in v2026_fl.iterrows():
+            vleg  = str(vrow['Legajo']).replace('.0','').strip()
+            vfech = vrow['Fecha desde']
+            vdias = safe_float(vrow.get('Cant dias', 0))
+            if vleg not in registros_visma:
+                registros_visma[vleg] = []
+            registros_visma[vleg].append((vfech, vdias))
+
     estados,vencidos_r,fechas_l,dias_rest,pcts = [],[],[],[],[]
     for _, row in df.iterrows():
         leg       = str(row['Legajo'])
@@ -655,8 +671,13 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                 md = re.search(r'DEBE GOZAR (\d+)', com.upper())
                 if md:
                     dd = int(md.group(1))
-                    # Solo vencido si prog (de Visma) es menor a días que debía gozar
-                    if prog < dd: venc = max(0, dd - prog)
+                    # Contar solo dias gozados ANTES O EN la fecha limite
+                    # (no contar dias programados despues del vencimiento)
+                    regs = registros_visma.get(leg, [])
+                    prog_antes = sum(d for f, d in regs
+                                     if pd.notna(f) and f.date() <= fl)
+                    if prog_antes < dd:
+                        venc = max(0, dd - prog_antes)
             # VENCIDO: solo cuando realmente tiene días sin gozar después de la fecha límite
             if venc>0:                              estado='VENCIDO'
             elif fl and dias_r<=30 and dias_x>0:   estado='CRITICO'
