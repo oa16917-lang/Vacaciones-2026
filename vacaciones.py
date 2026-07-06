@@ -779,10 +779,31 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
         return safe_float(r.get('Dias_x_prog', 0))
     df['Dias_x_vencer'] = df.apply(calc_dias_x_vencer, axis=1)
     # Si el estado es VENCIDO, Dias_x_vencer = los dias vencidos (no la meta futura)
-    # No pueden coexistir VENCIDO con dias x vencer de otra meta
     if 'Estado' in df.columns and 'Vencidos_real' in df.columns:
         mask_vencido = df['Estado'] == 'VENCIDO'
         df.loc[mask_vencido, 'Dias_x_vencer'] = df.loc[mask_vencido, 'Vencidos_real']
+
+    # Calcular vencimientos para anio siguiente (para selector de año en alertas)
+    # Guardar en columna auxiliar 'Venc_anio_sig' para uso en main()
+    anio_sig = hoy.year + 1
+    def venc_anio_sig(row):
+        leg = str(row['Legajo'])
+        fi  = fecha_ingreso_map.get(leg)
+        if not fi: return 0
+        n_check = relativedelta(date(anio_sig, 12, 31), fi).years
+        for n in range(1, n_check + 1):
+            fl_n = fi + relativedelta(years=n+1) - relativedelta(days=1)
+            if fl_n.year != anio_sig: continue
+            periodo_n = fi.year + n - 1
+            regs_n = registros_visma_per.get(leg, {}).get(periodo_n, [])
+            if not regs_n: continue
+            total_n      = sum(d for f, d in regs_n if pd.notna(f))
+            gozados_antes = sum(d for f, d in regs_n
+                                if pd.notna(f) and f.date() < fl_n)
+            if gozados_antes < total_n:
+                return total_n - gozados_antes
+        return 0
+    df['Venc_anio_sig'] = df.apply(venc_anio_sig, axis=1)
     return df
 
 def filtrar_usuario(df, user_email, pa):
@@ -1215,7 +1236,7 @@ def main():
         st.markdown("## Centro de Alertas")
 
         # Selector de año para vencidos (solo RRHH puede ver otros años)
-        anio_actual = hoy.year
+        anio_actual = date.today().year
         if role == 'RRHH':
             col_anio, _ = st.columns([1, 3])
             anio_venc = col_anio.selectbox(
@@ -1227,35 +1248,18 @@ def main():
         else:
             anio_venc = anio_actual
 
-        # Recalcular vencidos para el año seleccionado
-        # Si es el año actual, usar el Estado ya calculado
-        # Si es otro año, recalcular vencimientos para ese año especifico
+        # Filtrar vencidos segun año seleccionado
         if anio_venc == anio_actual:
+            # Año actual: usar Estado VENCIDO ya calculado
             df_v = df[df['Estado']=='VENCIDO'].copy() if 'Estado' in df.columns else df.head(0)
+        elif anio_venc == anio_actual + 1:
+            # Año siguiente: usar columna pre-calculada Venc_anio_sig
+            df_v = df[df.get('Venc_anio_sig', pd.Series(0, index=df.index)) > 0].copy()                    if 'Venc_anio_sig' in df.columns else df.head(0)
+            if not df_v.empty:
+                df_v['Vencidos_real'] = df_v['Venc_anio_sig']
         else:
-            # Recalcular para el año seleccionado
-            def venc_para_anio(row, anio_sel):
-                leg = str(row['Legajo'])
-                fi  = fecha_ingreso_map.get(leg)
-                if not fi: return 0
-                anios_chk = relativedelta(date(anio_sel, 12, 31), fi).years
-                venc_anio = 0
-                for n in range(1, anios_chk + 1):
-                    fl_n = fi + relativedelta(years=n+1) - relativedelta(days=1)
-                    if fl_n.year != anio_sel: continue
-                    periodo_n = fi.year + n - 1
-                    regs_n = registros_visma_per.get(leg, {}).get(periodo_n, [])
-                    if not regs_n: continue
-                    total_n = sum(d for f, d in regs_n if pd.notna(f))
-                    gozados_antes = sum(d for f, d in regs_n
-                                        if pd.notna(f) and f.date() < fl_n)
-                    if gozados_antes < total_n:
-                        venc_anio = max(venc_anio, total_n - gozados_antes)
-                return venc_anio
-            df_v = df.copy()
-            df_v['_venc_anio'] = df_v.apply(lambda r: venc_para_anio(r, anio_venc), axis=1)
-            df_v = df_v[df_v['_venc_anio'] > 0].copy()
-            df_v['Vencidos_real'] = df_v['_venc_anio']
+            # Año anterior: mostrar los que tuvieron vencidos (Estado VENCIDO es del año actual)
+            df_v = df[df['Estado']=='VENCIDO'].copy() if 'Estado' in df.columns else df.head(0)
 
         df_c = df[df['Estado']=='CRITICO'].copy()   if 'Estado' in df.columns else df.head(0)
         df_r = df[df['Estado']=='EN_RIESGO'].copy() if 'Estado' in df.columns else df.head(0)
