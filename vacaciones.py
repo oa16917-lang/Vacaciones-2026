@@ -703,42 +703,46 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                 # NO usar el campo Periodo de Visma (puede estar incorrecto)
                 # Año laboral N: desde aniversario N hasta aniversario N+1 - 1 dia
                 # Fecha limite para gozarlo: aniversario N+2 - 1 dia
-                # Vencimiento legal: SOLO fecha ingreso + fechas de Visma
-                # Sin campo Periodo, sin comentario META
-                # Meta del periodo = dias gozados en ventana [inicio_n, fl_n]
-                #                  + tardios gozados entre fl_n y el proximo aniversario
-                # Si gozo todo (ventana+tardios) = meta -> VENCIDO = tardios
-                # Si no gozo nada en ventana pero si despues = VENCIDO = tardios
+                # Vencimiento legal: asignacion secuencial por fecha de ingreso
+                # Cada registro cubre el periodo mas antiguo primero
+                # Si un registro es mayor al saldo del periodo, el resto pasa al siguiente
+                # SIN campo Periodo de Visma, SIN comentario META
                 if fi:
-                    regs_leg  = registros_visma.get(leg, [])
-                    anios_hoy = relativedelta(hoy, fi).years
-                    for n in range(1, anios_hoy + 1):
-                        fl_n       = fi + relativedelta(years=n+1) - relativedelta(days=1)
-                        inicio_n   = fi + relativedelta(years=n)
-                        inicio_sig = fi + relativedelta(years=n+1)  # siguiente aniversario
-                        if fl_n.year != hoy.year: continue
-                        if fl_n >= hoy:           continue
-                        # Dias gozados en la ventana del año laboral (a tiempo)
-                        en_ventana = sum(d for f, d in regs_leg
-                                         if pd.notna(f) and inicio_n <= f.date() <= fl_n)
-                        # Dias tardios: gozados entre fl_n y el siguiente fl
-                        # (mismos dias del año laboral pero gozados despues del vencimiento)
-                        # Limitados a lo que faltaba (30 - en_ventana) para no
-                        # confundir con dias del año laboral siguiente
-                        # Solo buscar tardios si la ventana tiene datos significativos
-                        # (>= 15 dias indica jornada completa, no part-time/trunco)
-                        if en_ventana < 15:
-                            # Part-time o trunco: si gozo algo en la ventana -> no vencido
-                            continue
-                        fl_sig     = fi + relativedelta(years=n+2) - relativedelta(days=1)
-                        faltaban   = max(0, 30 - en_ventana)
-                        candidatos = sum(d for f, d in regs_leg
-                                         if pd.notna(f)
-                                         and f.date() > fl_n
-                                         and f.date() <= fl_sig)
-                        tardios    = min(candidatos, faltaban)
-                        if tardios > 0:
-                            venc = max(venc, tardios)
+                    regs_leg  = sorted(
+                        [(f, d) for f, d in registros_visma.get(leg, []) if pd.notna(f)],
+                        key=lambda x: x[0]
+                    )
+                    anios_max = relativedelta(hoy, fi).years + 2
+                    # Periodos laborales
+                    periodos_yl = []
+                    for np_ in range(1, anios_max + 1):
+                        periodos_yl.append({
+                            'fl':     fi + relativedelta(years=np_+1) - relativedelta(days=1),
+                            'antes':  0.0,
+                            'despues':0.0
+                        })
+                    saldo_yl = [30.0] * len(periodos_yl)
+                    # Asignar secuencialmente
+                    for f_r, d_r in regs_leg:
+                        dias_rest = float(d_r)
+                        for idx_p, per_p in enumerate(periodos_yl):
+                            if dias_rest <= 0: break
+                            if saldo_yl[idx_p] <= 0: continue
+                            aporte = min(dias_rest, saldo_yl[idx_p])
+                            saldo_yl[idx_p] -= aporte
+                            dias_rest       -= aporte
+                            if f_r.date() <= per_p['fl']:
+                                per_p['antes']   += aporte
+                            else:
+                                per_p['despues'] += aporte
+                    # Detectar vencidos en el año actual
+                    for per_p in periodos_yl:
+                        if per_p['fl'].year != hoy.year: continue
+                        if per_p['fl'] >= hoy:           continue
+                        total_p = per_p['antes'] + per_p['despues']
+                        if total_p < 15: continue  # part-time/trunco
+                        if per_p['despues'] > 0:
+                            venc = max(venc, int(per_p['despues']))
 
             # ── META DE PROGRAMACION APPARKA (independiente del vencimiento) ──
             # Fuente: comentario del META "DEBE GOZAR X DIAS ANTES DEL DD/MM/AAAA"
