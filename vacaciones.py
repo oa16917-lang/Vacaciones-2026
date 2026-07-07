@@ -1492,7 +1492,31 @@ def main():
                 df_cal = df_full[df_full['Legajo'].astype(str).isin(legs_dir_cal)].copy()
         else:
             df_cal = df.copy()
-            if f_jefe_c!='Todos' and col_jefe: df_cal=df_cal[df_cal[col_jefe]==f_jefe_c]
+            if f_jefe_c!='Todos' and col_jefe:
+                # Si el jefe seleccionado es el GerenteGeneral, mostrar sus directivos
+                gg_nombre = next((v['nombre'] for v in pa.values()
+                                  if v.get('role')=='GerenteGeneral'), None)
+                if gg_nombre and f_jefe_c == gg_nombre:
+                    # Mostrar directivos con puesto GERENTE desde Visma
+                    puesto_map_rrhh = area_sistema.get('puesto', {}) if area_sistema else {}
+                    legajo_gg_rrhh  = next((str(v.get('legajo','')) for v in pa.values()
+                                            if v.get('role')=='GerenteGeneral'), '')
+                    legs_dir_rrhh   = {str(leg) for leg, cargo in puesto_map_rrhh.items()
+                                       if 'GERENTE' in cargo.upper() and str(leg) != legajo_gg_rrhh}
+                    if not df_visma.empty:
+                        col_nom_vis2 = next((c for c in df_visma.columns
+                                             if 'nombre' in c.lower() or 'apellido' in c.lower()), None)
+                        cols_vis2 = ['Legajo'] + ([col_nom_vis2] if col_nom_vis2 else [])
+                        vis_dir2 = (df_visma[df_visma['Legajo'].astype(str).isin(legs_dir_rrhh)]
+                                    [cols_vis2].drop_duplicates('Legajo').copy())
+                        vis_dir2['Legajo'] = vis_dir2['Legajo'].astype(str)
+                        if col_nom_vis2 and col_nom_vis2 != 'Nombre':
+                            vis_dir2 = vis_dir2.rename(columns={col_nom_vis2: 'Nombre'})
+                        df_cal = vis_dir2
+                    else:
+                        df_cal = df_cal[df_cal[col_jefe]==f_jefe_c]
+                else:
+                    df_cal = df_cal[df_cal[col_jefe]==f_jefe_c]
             if f_area_c!='Todas' and col_area: df_cal=df_cal[df_cal[col_area]==f_area_c]
 
         if f_leg_c:
