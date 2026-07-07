@@ -724,13 +724,13 @@ def construir_consolidado(df_meta, df_visma, df_ab=None, area_sistema=None, pa=N
                     saldo_yl = [30.0] * len(periodos_yl)
                     # Asignar secuencialmente
                     for f_r, d_r in regs_leg:
-                        dias_rest = float(d_r)
+                        _d_rest = float(d_r)
                         for idx_p, per_p in enumerate(periodos_yl):
-                            if dias_rest <= 0: break
+                            if _d_rest <= 0: break
                             if saldo_yl[idx_p] <= 0: continue
-                            aporte = min(dias_rest, saldo_yl[idx_p])
+                            aporte = min(_d_rest, saldo_yl[idx_p])
                             saldo_yl[idx_p] -= aporte
-                            dias_rest       -= aporte
+                            _d_rest         -= aporte
                             if f_r.date() <= per_p['fl']:
                                 per_p['antes']   += aporte
                             else:
