@@ -1064,6 +1064,43 @@ def main():
 
         st.markdown("---")
 
+        # ── Avance mensual de días gozados y programados ────────────────────────
+        if not df_visma.empty:
+            col_mes_sel, _ = st.columns([2,5])
+            mes_avance = col_mes_sel.selectbox(
+                "📅 Ver avance hasta el mes",
+                options=MES_NAMES,
+                index=date.today().month - 1,
+                key='mes_avance_dash'
+            )
+            mes_num_av = MES_NAMES.index(mes_avance) + 1
+            # Filtrar Visma del scope del usuario
+            legs_scope = set(df_scope['Legajo'].astype(str).unique())
+            vis_scope  = df_visma[
+                (df_visma['Legajo'].astype(str).isin(legs_scope)) &
+                (df_visma['Estado aus'].isin(['Aprobada','Pendiente'])) &
+                (df_visma['Fecha desde'].dt.year == 2026)
+            ].copy()
+            # Dias gozados (hasta fin del mes seleccionado)
+            fecha_corte = date(2026, mes_num_av,
+                               [31,28,31,30,31,30,31,31,30,31,30,31][mes_num_av-1])
+            vis_gozado = vis_scope[vis_scope['Fecha desde'].dt.date <= fecha_corte]
+            dias_gozados = int(vis_gozado['Cant dias'].apply(safe_float).sum())
+            # Dias programados (después del mes seleccionado, en 2026)
+            vis_prog     = vis_scope[vis_scope['Fecha desde'].dt.date > fecha_corte]
+            dias_prog    = int(vis_prog['Cant dias'].apply(safe_float).sum())
+            dias_pend    = max(0, int(meta_t) - dias_gozados - dias_prog)
+            pct_goz      = round(dias_gozados/meta_t*100,1) if meta_t > 0 else 0
+            pct_prog     = round(dias_prog/meta_t*100,1)    if meta_t > 0 else 0
+            cm1,cm2,cm3,cm4 = st.columns(4)
+            cm1.markdown(kpi(f"✅ Gozados (hasta {mes_avance})", fmt_num(dias_gozados)), unsafe_allow_html=True)
+            cm2.markdown(kpi(f"📅 Programados (resto 2026)",    fmt_num(dias_prog)),    unsafe_allow_html=True)
+            cm3.markdown(kpi(f"⚠️ Sin programar",               fmt_num(dias_pend), FUCSIA), unsafe_allow_html=True)
+            cm4.markdown(kpi(f"📊 Meta total",                   fmt_num(int(meta_t))),  unsafe_allow_html=True)
+            st.caption(f"Gozados {pct_goz}% · Programados {pct_prog}% · Total cubierto {round(pct_goz+pct_prog,1)}% de la meta")
+
+        st.markdown("---")
+
         # ── GerenteGeneral: tabla Personal a cargo a ancho completo ────────────
         if role == 'GerenteGeneral':
             st.markdown("### Personal a cargo")
@@ -1206,12 +1243,15 @@ def main():
     # ── COLABORADORES POR AREA ─────────────────────────────────────────────────
     elif pagina == "👥 Colaboradores por Área":
         st.markdown("## Colaboradores por Área")
-        c1,c2,c3,c4,c5 = st.columns(5)
-        buscar = c1.text_input("🔍 Nombre o legajo")
-        f_area = c2.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
-        f_cat  = c3.selectbox("Categoría",['Todas']+sorted(df[col_cat].dropna().unique().tolist()) if col_cat else ['Todas'])
-        f_est  = c4.selectbox("Estado",['Todos','VENCIDO','CRITICO','EN_RIESGO','SIN_SALDO'])
-        f_jefe = c5.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
+        # Filtro por Gerencia solo visible para RRHH y Gerente
+        c1,c2,c3,c4,c5,c6 = st.columns(6)
+        buscar  = c1.text_input("🔍 Nombre o legajo")
+        col_sg  = 'Sub_Gerente' if 'Sub_Gerente' in df.columns else None
+        f_ger   = c2.selectbox("Gerencia",['Todas']+sorted(df[col_sg].dropna().unique().tolist()) if col_sg and role in ('RRHH','Gerente','GerenteGeneral') else ['Todas']) if role in ('RRHH','Gerente','GerenteGeneral') else 'Todas'
+        f_area  = c3.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
+        f_cat   = c4.selectbox("Categoría",['Todas']+sorted(df[col_cat].dropna().unique().tolist()) if col_cat else ['Todas'])
+        f_est   = c5.selectbox("Estado",['Todos','VENCIDO','CRITICO','EN_RIESGO','SIN_SALDO'])
+        f_jefe  = c6.selectbox("Jefe",['Todos']+sorted(df[col_jefe].dropna().unique().tolist()) if col_jefe else ['Todos'])
 
         # Solo colaboradores con area Y con dias pendientes por programar
         # Excluir cesados en 2026: su meta ya esta cumplida, Dias_x_prog=0
@@ -1231,6 +1271,7 @@ def main():
             mk = df_f[col_nom].astype(str).str.upper().str.contains(buscar.upper(),na=False)
             mk |= df_f['Legajo'].astype(str).str.contains(buscar,na=False)
             df_f = df_f[mk]
+        if f_ger !='Todas' and col_sg:   df_f=df_f[df_f[col_sg]==f_ger]
         if f_area!='Todas' and col_area: df_f=df_f[df_f[col_area]==f_area]
         if f_cat !='Todas' and col_cat:  df_f=df_f[df_f[col_cat]==f_cat]
         if f_est !='Todos' and 'Estado' in df_f.columns: df_f=df_f[df_f['Estado']==f_est]
@@ -1403,9 +1444,10 @@ def main():
         if role == 'GerenteGeneral':
             puesto_map_cal = area_sistema.get('puesto', {}) if area_sistema else {}
             legajo_gg_cal  = str(pa.get(user_email, {}).get('legajo', ''))
-            legs_dir_cal   = {leg for leg, cargo in puesto_map_cal.items()
-                              if 'GERENTE' in cargo.upper() and leg != legajo_gg_cal}
-            df_cal = df[df['Legajo'].astype(str).isin(legs_dir_cal)].copy()
+            legs_dir_cal   = {str(leg) for leg, cargo in puesto_map_cal.items()
+                              if 'GERENTE' in cargo.upper() and str(leg) != legajo_gg_cal}
+            # Usar df_full para capturar directivos aunque no tengan area asignada
+            df_cal = df_full[df_full['Legajo'].astype(str).isin(legs_dir_cal)].copy()
         else:
             df_cal = df.copy()
             if f_jefe_c!='Todos' and col_jefe: df_cal=df_cal[df_cal[col_jefe]==f_jefe_c]
