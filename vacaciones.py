@@ -1452,17 +1452,42 @@ def main():
         if role == 'GerenteGeneral':
             puesto_map_cal = area_sistema.get('puesto', {}) if area_sistema else {}
             legajo_gg_cal  = str(pa.get(user_email, {}).get('legajo', ''))
-            legs_dir_cal   = {str(leg) for leg, cargo in puesto_map_cal.items()
-                              if 'GERENTE' in cargo.upper() and str(leg) != legajo_gg_cal}
+            # Buscar directivos desde Visma directamente (nombre contiene GERENTE)
+            # puesto_map_cal puede no tener todos si algunos no tienen area en atributos
+            legs_dir_cal = {str(leg) for leg, cargo in puesto_map_cal.items()
+                            if 'GERENTE' in cargo.upper() and str(leg) != legajo_gg_cal}
+            # Complementar con legajos del acceso_persona.json que tienen rol SubGerente
+            if pa:
+                for email_p, info_p in pa.items():
+                    if info_p.get('role') in ('SubGerente', 'GerenteGeneral') and info_p.get('legajo'):
+                        legs_dir_cal.add(str(info_p['legajo']))
+                    # Tambien agregar los que tienen puesto con GERENTE en acceso_persona
+                    leg_p = str(info_p.get('legajo',''))
+                    if leg_p and leg_p != legajo_gg_cal and leg_p in puesto_map_cal:
+                        if 'GERENTE' in puesto_map_cal[leg_p].upper():
+                            legs_dir_cal.add(leg_p)
+            legs_dir_cal.discard(legajo_gg_cal)
             # Construir df_cal desde Visma directamente con los legajos de directivos
             # (no depender del META donde algunos directivos no aparecen)
             if not df_visma.empty:
+                col_nom_vis = next((c for c in df_visma.columns
+                                    if 'nombre' in c.lower() or 'apellido' in c.lower()), None)
+                cols_vis = ['Legajo'] + ([col_nom_vis] if col_nom_vis else [])
                 vis_dir = (df_visma[df_visma['Legajo'].astype(str).isin(legs_dir_cal)]
-                           [['Legajo','Apellidos y Nombre']]
-                           .drop_duplicates('Legajo').copy())
-                vis_dir = vis_dir.rename(columns={'Apellidos y Nombre': col_nom or 'Nombre'})
+                           [cols_vis].drop_duplicates('Legajo').copy())
                 vis_dir['Legajo'] = vis_dir['Legajo'].astype(str)
+                # Normalizar nombre de columna para que render_calendario lo encuentre
+                if col_nom_vis and col_nom_vis != 'Nombre':
+                    vis_dir = vis_dir.rename(columns={col_nom_vis: 'Nombre'})
                 df_cal = vis_dir
+                # Complementar con directivos que esten en df_full pero no en Visma
+                legs_en_vis = set(df_cal['Legajo'].unique())
+                legs_solo_meta = legs_dir_cal - legs_en_vis
+                if legs_solo_meta:
+                    extra = df_full[df_full['Legajo'].astype(str).isin(legs_solo_meta)][['Legajo']].copy()
+                    if col_nom and col_nom in df_full.columns:
+                        extra['Nombre'] = df_full.loc[extra.index, col_nom]
+                    df_cal = pd.concat([df_cal, extra], ignore_index=True)
             else:
                 df_cal = df_full[df_full['Legajo'].astype(str).isin(legs_dir_cal)].copy()
         else:
