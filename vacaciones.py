@@ -1448,25 +1448,23 @@ def main():
                 f_area_c = st.selectbox("Área",['Todas']+sorted(df[col_area].dropna().unique().tolist()) if col_area else ['Todas'])
             f_leg_c  = st.text_input("Buscar legajo o nombre", placeholder="Ej: 1000097727")
 
-        # GerenteGeneral: filtrar solo sus directivos (puestos con GERENTE)
+        # GerenteGeneral: calendario de sus reportes directos (puestos con GERENTE)
         if role == 'GerenteGeneral':
             puesto_map_cal = area_sistema.get('puesto', {}) if area_sistema else {}
             legajo_gg_cal  = str(pa.get(user_email, {}).get('legajo', ''))
             legs_dir_cal   = {str(leg) for leg, cargo in puesto_map_cal.items()
                               if 'GERENTE' in cargo.upper() and str(leg) != legajo_gg_cal}
-            # Intentar desde df_full primero, sino construir desde legajos directivos
-            df_cal = df_full[df_full['Legajo'].astype(str).isin(legs_dir_cal)].copy()
-            # Si faltan directivos (no tienen area en META), agregarlos desde df_visma
-            legs_en_cal = set(df_cal['Legajo'].astype(str).unique())
-            legs_faltantes = legs_dir_cal - legs_en_cal
-            if legs_faltantes and not df_visma.empty:
-                vis_dir = df_visma[df_visma['Legajo'].astype(str).isin(legs_faltantes)][['Legajo','Apellidos y Nombre']].drop_duplicates('Legajo')
-                for _, vr in vis_dir.iterrows():
-                    fila_extra = pd.DataFrame([{
-                        'Legajo': str(vr['Legajo']),
-                        col_nom:  str(vr['Apellidos y Nombre']) if col_nom else '',
-                    }])
-                    df_cal = pd.concat([df_cal, fila_extra], ignore_index=True)
+            # Construir df_cal desde Visma directamente con los legajos de directivos
+            # (no depender del META donde algunos directivos no aparecen)
+            if not df_visma.empty:
+                vis_dir = (df_visma[df_visma['Legajo'].astype(str).isin(legs_dir_cal)]
+                           [['Legajo','Apellidos y Nombre']]
+                           .drop_duplicates('Legajo').copy())
+                vis_dir = vis_dir.rename(columns={'Apellidos y Nombre': col_nom or 'Nombre'})
+                vis_dir['Legajo'] = vis_dir['Legajo'].astype(str)
+                df_cal = vis_dir
+            else:
+                df_cal = df_full[df_full['Legajo'].astype(str).isin(legs_dir_cal)].copy()
         else:
             df_cal = df.copy()
             if f_jefe_c!='Todos' and col_jefe: df_cal=df_cal[df_cal[col_jefe]==f_jefe_c]
