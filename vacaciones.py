@@ -1031,6 +1031,15 @@ def main():
 
     # ── DASHBOARD ──────────────────────────────────────────────────────────────
     if pagina == "📊 Dashboard":
+        # Título + selector PRIMERO antes de cualquier cálculo
+        col_dash_tit, col_dash_mes = st.columns([3, 2])
+        col_dash_tit.markdown("## Dashboard — Vacaciones")
+        mes_avance_top = col_dash_mes.selectbox(
+            "Ver gozados hasta el mes:",
+            options=MES_NAMES,
+            index=date.today().month - 1,
+            key='mes_avance_dash'
+        )
 
         # KPIs scoped al usuario — si es RRHH ve empresa completa, si es Jefe/Admin ve su area
         is_rrhh = (role in ('RRHH', 'Gerente', 'GerenteGeneral'))  # ven empresa completa
@@ -1068,6 +1077,9 @@ def main():
         # Leer el valor del selectbox si ya fue renderizado (session_state)
         _mes_key = 'mes_avance_dash'
         _mes_sel = st.session_state.get(_mes_key, MES_NAMES[_mes_idx_def])
+        # Usar el valor del selectbox ya renderizado arriba
+        if mes_avance_top in MES_NAMES:
+            _mes_sel = mes_avance_top
         _mes_num = MES_NAMES.index(_mes_sel) + 1
         _dias_mes = [31,28,31,30,31,30,31,31,30,31,30,31][_mes_num-1]
         _fecha_corte = date(2026, _mes_num, _dias_mes)
@@ -1078,8 +1090,10 @@ def main():
             dias_prog_fut = int(vis_av[vis_av['Fecha desde'].dt.date >  _fecha_corte]['_d'].sum())
         else:
             dias_gozados = dias_prog_fut = 0
-        # Los 3 siempre suman la meta
-        sin_prog  = max(0, int(meta_t) - dias_gozados - dias_prog_fut)
+        # Sin programar = meta - prog_cap (misma base que el % Avance del KPI)
+        # Así: gozados% + programados% + sin_programar% = 100%
+        # Y "Días por programar" coincide con el 10% restante del % Avance
+        sin_prog  = max(0, int(meta_t) - int(prog_cap))
         pct_goz   = round(dias_gozados  / meta_t * 100, 1) if meta_t > 0 else 0
         pct_fut   = round(dias_prog_fut / meta_t * 100, 1) if meta_t > 0 else 0
         pct_sin   = round(sin_prog      / meta_t * 100, 1) if meta_t > 0 else 0
@@ -1093,17 +1107,7 @@ def main():
         c4.markdown(kpi("% Avance Meta 2026", f"{pct}%"), unsafe_allow_html=True)
         c5.markdown(kpi("Días por programar", fmt_num(sin_prog), MORADO), unsafe_allow_html=True)
 
-        # Selector de mes junto al título del dashboard
-        col_dash_tit, col_dash_mes = st.columns([3, 2])
-        col_dash_tit.markdown("## Dashboard — Vacaciones")
-        mes_avance = col_dash_mes.selectbox(
-            "Ver gozados hasta el mes:",
-            options=MES_NAMES,
-            index=date.today().month - 1,
-            key='mes_avance_dash'
-        )
-        # Los valores ya están calculados arriba usando session_state
-        # Si el mes cambió, Streamlit re-ejecuta y recalcula automáticamente
+
 
         st.markdown("---")
 
@@ -1195,10 +1199,10 @@ def main():
                             f"font-size:12px;margin-bottom:4px'>"
                             f"<span style='color:{AZUL};font-weight:600'>{row_t['Area']}</span>"
                             f"<span style='color:{FUCSIA};font-weight:700'>{row_t['Dias']:,} días</span></div>"
-                            f"<div style='height:12px;background:{AZUL_L};border-radius:6px'>"
-                            f"<div style='width:{pct_b}%;height:100%;"
+                            f"<div style='width:100%;height:16px;background:{AZUL_L};border-radius:8px;overflow:hidden'>"
+                            f"<div style='width:{pct_b}%;min-width:8px;height:100%;"
                             f"background:linear-gradient(90deg,{FUCSIA},{MORADO});"
-                            f"border-radius:6px;min-width:6px'></div></div></div>",
+                            f"border-radius:8px'></div></div></div>",
                             unsafe_allow_html=True)
 
             with col_r:
