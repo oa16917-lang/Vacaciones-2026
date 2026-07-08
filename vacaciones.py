@@ -1066,39 +1066,71 @@ def main():
 
         st.markdown("---")
 
-        # ── Avance mensual de días gozados y programados ────────────────────────
+        # ── Avance: Gozados / Programados / Sin programar (siempre suman la meta) ──
         if not df_visma.empty:
-            col_mes_sel, _ = st.columns([2,5])
-            mes_avance = col_mes_sel.selectbox(
-                "📅 Ver avance hasta el mes",
+            # Selector de mes al lado del título
+            col_tit_av, col_mes_sel = st.columns([3, 2])
+            col_tit_av.markdown("**📊 Avance de vacaciones 2026**")
+            mes_avance  = col_mes_sel.selectbox(
+                "Ver gozados hasta:",
                 options=MES_NAMES,
                 index=date.today().month - 1,
-                key='mes_avance_dash'
+                key='mes_avance_dash',
+                label_visibility='collapsed'
             )
-            mes_num_av  = MES_NAMES.index(mes_avance) + 1
-            dias_mes    = [31,28,31,30,31,30,31,31,30,31,30,31][mes_num_av-1]
+            mes_num_av = MES_NAMES.index(mes_avance) + 1
+            dias_mes   = [31,28,31,30,31,30,31,31,30,31,30,31][mes_num_av-1]
             fecha_corte = date(2026, mes_num_av, dias_mes)
-            # Misma base de Visma que los KPIs de arriba
-            legs_scope  = set(df_scope['Legajo'].astype(str).unique())
-            vis_scope   = df_visma[
+
+            # Visma 2026 del scope del usuario
+            legs_scope = set(df_scope['Legajo'].astype(str).unique())
+            vis_scope  = df_visma[
                 (df_visma['Legajo'].astype(str).isin(legs_scope)) &
                 (df_visma['Estado aus'].isin(['Aprobada','Pendiente'])) &
                 (df_visma['Fecha desde'].dt.year == 2026)
             ].copy()
             vis_scope['_d'] = vis_scope['Cant dias'].apply(safe_float)
-            # Gozados hasta fin del mes (ya disfrutados o en curso)
-            dias_gozados = int(vis_scope[vis_scope['Fecha desde'].dt.date <= fecha_corte]['_d'].sum())
-            # Programados despues del mes (ya en Visma pero aun no disfrutados)
-            dias_prog    = int(vis_scope[vis_scope['Fecha desde'].dt.date >  fecha_corte]['_d'].sum())
-            # Sin programar = dias que faltan y NO estan en Visma = dp (mismo que KPI arriba)
-            pct_goz  = round(dias_gozados/meta_t*100,1) if meta_t > 0 else 0
-            pct_prog = round(dias_prog/meta_t*100,1)    if meta_t > 0 else 0
-            cm1,cm2,cm3,cm4 = st.columns(4)
-            cm1.markdown(kpi(f"✅ Gozados hasta {mes_avance}", fmt_num(dias_gozados)), unsafe_allow_html=True)
-            cm2.markdown(kpi(f"📅 Programados resto 2026",    fmt_num(dias_prog)),    unsafe_allow_html=True)
-            cm3.markdown(kpi(f"⚠️ Sin programar",             fmt_num(dp), FUCSIA),   unsafe_allow_html=True)
-            cm4.markdown(kpi(f"📊 % Avance",                  f"{pct}%"),            unsafe_allow_html=True)
-            st.caption(f"Gozados {pct_goz}% · Programados {pct_prog}% · Días sin programar {fmt_num(dp)} · Total avance {pct}%")
+
+            # Gozados = fecha <= fin del mes seleccionado
+            dias_gozados  = int(vis_scope[vis_scope['Fecha desde'].dt.date <= fecha_corte]['_d'].sum())
+            # Programados = fecha > fin del mes seleccionado (en Visma pero aún no disfrutados)
+            dias_prog_fut = int(vis_scope[vis_scope['Fecha desde'].dt.date >  fecha_corte]['_d'].sum())
+            # Sin programar = Meta − todo lo que hay en Visma 2026 (gozados + programados)
+            total_visma_2026 = dias_gozados + dias_prog_fut
+            sin_prog = max(0, int(meta_t) - total_visma_2026)
+
+            # Verificación: los 3 siempre suman la meta
+            # dias_gozados + dias_prog_fut + sin_prog = meta_t ✓
+            pct_goz   = round(dias_gozados  / meta_t * 100, 1) if meta_t > 0 else 0
+            pct_fut   = round(dias_prog_fut / meta_t * 100, 1) if meta_t > 0 else 0
+            pct_sin   = round(sin_prog      / meta_t * 100, 1) if meta_t > 0 else 0
+
+            cm1, cm2, cm3 = st.columns(3)
+            cm1.markdown(kpi(f"✅ Gozados hasta {mes_avance}",
+                             fmt_num(dias_gozados),
+                             '#27AE60'), unsafe_allow_html=True)
+            cm2.markdown(kpi(f"📅 Programados (desde {MES_NAMES[mes_num_av] if mes_num_av < 12 else 'Dic'})",
+                             fmt_num(dias_prog_fut),
+                             AZUL), unsafe_allow_html=True)
+            cm3.markdown(kpi("⚠️ Sin programar",
+                             fmt_num(sin_prog),
+                             FUCSIA), unsafe_allow_html=True)
+            # Barra de progreso visual
+            st.markdown(
+                f"<div style='margin:6px 0 2px 0;font-size:11px;color:#666'>"
+                f"Gozados <b>{pct_goz}%</b> · "
+                f"Programados <b>{pct_fut}%</b> · "
+                f"Sin programar <b>{pct_sin}%</b> · "
+                f"Total: {fmt_num(dias_gozados+dias_prog_fut+sin_prog)} = Meta {fmt_num(int(meta_t))}</div>",
+                unsafe_allow_html=True)
+            barra_html = (
+                f"<div style='display:flex;height:10px;border-radius:5px;overflow:hidden;margin-bottom:8px'>"
+                f"<div style='width:{pct_goz}%;background:#27AE60'></div>"
+                f"<div style='width:{pct_fut}%;background:{AZUL}'></div>"
+                f"<div style='width:{pct_sin}%;background:#FFD0E0'></div>"
+                f"</div>"
+            )
+            st.markdown(barra_html, unsafe_allow_html=True)
 
         st.markdown("---")
 
