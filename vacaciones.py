@@ -1574,74 +1574,90 @@ def main():
                     'Días x prog.':     f"{int(col_sum(gd, col_dp)):,}",
                 }
 
-            # Tabla expandible por gerencia con categorías
+            # Columnas de la tabla
+            COLS_RE = [3, 1, 1.2, 1.4, 1, 1.4]
+
+            def pct_directo(prog, meta):
+                """% avance = prog/meta sin capear — consistente con KPIs del dashboard"""
+                return round(prog / meta * 100, 1) if meta > 0 else 0
+
+            def render_fila(label, hc, meta, prog, dp, venc, nivel='gerencia'):
+                pct = pct_directo(prog, meta)
+                ca,cb,cc,cd,ce,cf = st.columns(COLS_RE)
+                if nivel == 'gerencia':
+                    ca.markdown(f"<div style='background:{AZUL};color:white;padding:6px 10px;"
+                                f"border-radius:6px;font-weight:700;font-size:13px'>{label}</div>",
+                                unsafe_allow_html=True)
+                elif nivel == 'subtotal':
+                    ca.markdown(f"<div style='background:#D0CCF0;color:{AZUL};padding:5px 10px;"
+                                f"border-radius:4px;font-weight:700;font-size:12px'>📊 Subtotal — {label}</div>",
+                                unsafe_allow_html=True)
+                elif nivel == 'total':
+                    ca.markdown(f"<div style='background:{FUCSIA};color:white;padding:6px 10px;"
+                                f"border-radius:6px;font-weight:700;font-size:13px'>🏁 TOTAL GENERAL</div>",
+                                unsafe_allow_html=True)
+                else:
+                    ca.markdown(f"<div style='background:{AZUL_L};color:{AZUL};padding:4px 10px 4px 24px;"
+                                f"border-radius:4px;font-size:12px'>↳ {label}</div>",
+                                unsafe_allow_html=True)
+                es_total = nivel in ('subtotal','total')
+                bld = '<b>' if es_total else ''
+                ebd = '</b>' if es_total else ''
+                cb.markdown(f"<div style='text-align:right;font-size:12px'>{bld}HC{ebd}<br>{bld}{hc:,}{ebd}</div>", unsafe_allow_html=True)
+                cc.markdown(f"<div style='text-align:right;font-size:12px'>{bld}Meta 2026{ebd}<br>{bld}{int(meta):,}{ebd}</div>", unsafe_allow_html=True)
+                cd.markdown(f"<div style='text-align:right;font-size:12px'>{bld}Días prog.{ebd}<br>{bld}{int(prog):,}{ebd}</div>", unsafe_allow_html=True)
+                pct_color = FUCSIA if pct < 100 else '#27ae60'
+                ce.markdown(f"<div style='text-align:right;font-size:12px;color:{pct_color}'>{bld}% Avance{ebd}<br>{bld}{pct}%{ebd}</div>", unsafe_allow_html=True)
+                cf.markdown(f"<div style='text-align:right;font-size:12px;color:{MORADO}'>{bld}Días x prog.{ebd}<br>{bld}{dp:,}{ebd}</div>", unsafe_allow_html=True)
+
             all_rows_export = []
+            tot_hc=0; tot_meta=0.0; tot_prog=0.0; tot_dp=0; tot_venc=0
+
             for gv in sorted(df[grp].dropna().unique()):
-                gd = df[df[grp]==gv]
+                gd     = df[df[grp]==gv]
                 meta_g = col_sum(gd, col_meta)
                 prog_g = col_sum(gd, 'Prog_visma')
-                pgc_g  = cap_sum(gd, 'Prog_visma', col_meta)
-                pct_g  = round(pgc_g/meta_g*100,1) if meta_g>0 else 0
                 dp_g   = int(col_sum(gd, col_dp))
                 venc_g = int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0
 
-                # Header de gerencia con colores Apparka
-                col_a, col_b, col_c, col_d, col_e, col_f = st.columns([3,1,1.2,1.4,1,1.4])
-                col_a.markdown(f"<div style='background:{AZUL};color:white;padding:6px 10px;"
-                               f"border-radius:6px;font-weight:600;font-size:13px'>{gv}</div>",
-                               unsafe_allow_html=True)
-                col_b.markdown(f"<div style='text-align:right;font-size:12px'><b>HC</b><br>{len(gd):,}</div>",
-                               unsafe_allow_html=True)
-                col_c.markdown(f"<div style='text-align:right;font-size:12px'><b>Meta 2026</b><br>{int(meta_g):,}</div>",
-                               unsafe_allow_html=True)
-                col_d.markdown(f"<div style='text-align:right;font-size:12px'><b>Días prog.</b><br>{int(prog_g):,}</div>",
-                               unsafe_allow_html=True)
-                col_e.markdown(f"<div style='text-align:right;font-size:12px;color:{FUCSIA}'>"
-                               f"<b>% Avance</b><br><b>{pct_g}%</b></div>",
-                               unsafe_allow_html=True)
-                col_f.markdown(f"<div style='text-align:right;font-size:12px;color:{MORADO}'>"
-                               f"<b>Días x prog.</b><br><b>{dp_g:,}</b></div>",
-                               unsafe_allow_html=True)
+                render_fila(gv, len(gd), meta_g, prog_g, dp_g, venc_g, 'gerencia')
+                all_rows_export.append({'Nivel':'Gerencia','Gerencia':gv,'Categoría':'',
+                    'HC':len(gd),'Meta 2026':int(meta_g),'Días programados':int(prog_g),
+                    '% Avance':f"{pct_directo(prog_g,meta_g)}%",'Días x prog.':dp_g,'Vencidos':venc_g})
 
-                # Categorías debajo
+                # Categorías
                 if col_cat and col_cat in gd.columns:
                     for cat in CATS:
-                        gc = gd[gd[col_cat].str.upper()==cat] if col_cat in gd.columns else pd.DataFrame()
+                        gc = gd[gd[col_cat].str.upper()==cat]
                         if gc.empty: continue
                         meta_c = col_sum(gc, col_meta)
                         prog_c = col_sum(gc, 'Prog_visma')
-                        pgc_c  = cap_sum(gc, 'Prog_visma', col_meta)
-                        pct_c  = round(pgc_c/meta_c*100,1) if meta_c>0 else 0
                         dp_c   = int(col_sum(gc, col_dp))
-                        ca,cb,cc,cd,ce,cf = st.columns([3,1,1.2,1.4,1,1.4])
-                        cat_color = AZUL_L
-                        ca.markdown(f"<div style='background:{cat_color};color:{AZUL};padding:4px 10px 4px 24px;"
-                                    f"border-radius:4px;font-size:12px'>↳ {cat.title()}</div>",
-                                    unsafe_allow_html=True)
-                        cb.markdown(f"<div style='text-align:right;font-size:12px;color:#666'>{len(gc):,}</div>",
-                                    unsafe_allow_html=True)
-                        cc.markdown(f"<div style='text-align:right;font-size:12px;color:#666'>{int(meta_c):,}</div>",
-                                    unsafe_allow_html=True)
-                        cd.markdown(f"<div style='text-align:right;font-size:12px;color:#666'>{int(prog_c):,}</div>",
-                                    unsafe_allow_html=True)
-                        ce.markdown(f"<div style='text-align:right;font-size:12px;color:{FUCSIA}'>{pct_c}%</div>",
-                                    unsafe_allow_html=True)
-                        cf.markdown(f"<div style='text-align:right;font-size:12px;color:{MORADO}'>{dp_c:,}</div>",
-                                    unsafe_allow_html=True)
-                        all_rows_export.append({
-                            'Gerencia': gv, 'Categoría': cat.title(),
-                            'HC': len(gc), 'Meta 2026': int(meta_c),
-                            'Días programados': int(prog_c),
-                            '% Avance': f"{pct_c}%", 'Días x prog.': dp_c,
-                            'Vencidos': int((gc['Vencidos_real']>0).sum()) if 'Vencidos_real' in gc.columns else 0,
-                        })
+                        venc_c = int((gc['Vencidos_real']>0).sum()) if 'Vencidos_real' in gc.columns else 0
+                        render_fila(cat.title(), len(gc), meta_c, prog_c, dp_c, venc_c, 'categoria')
+                        all_rows_export.append({'Nivel':'Categoría','Gerencia':gv,'Categoría':cat.title(),
+                            'HC':len(gc),'Meta 2026':int(meta_c),'Días programados':int(prog_c),
+                            '% Avance':f"{pct_directo(prog_c,meta_c)}%",'Días x prog.':dp_c,'Vencidos':venc_c})
 
-                st.markdown("<hr style='margin:4px 0;border-color:#f0efe9'>", unsafe_allow_html=True)
+                # Subtotal de gerencia
+                render_fila(gv, len(gd), meta_g, prog_g, dp_g, venc_g, 'subtotal')
+                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+                tot_hc   += len(gd); tot_meta += meta_g
+                tot_prog += prog_g;  tot_dp   += dp_g; tot_venc += venc_g
+
+            # Total general
+            st.markdown("<hr style='border-color:#ED2579;border-width:2px;margin:8px 0'>", unsafe_allow_html=True)
+            render_fila('TOTAL GENERAL', tot_hc, tot_meta, tot_prog, tot_dp, tot_venc, 'total')
+            all_rows_export.append({'Nivel':'TOTAL','Gerencia':'TOTAL GENERAL','Categoría':'',
+                'HC':tot_hc,'Meta 2026':int(tot_meta),'Días programados':int(tot_prog),
+                '% Avance':f"{pct_directo(tot_prog,tot_meta)}%",'Días x prog.':tot_dp,'Vencidos':tot_venc})
 
             if all_rows_export:
                 exp_df = pd.DataFrame(all_rows_export)
+                st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
                 st.download_button("⬇️ Descargar resumen completo", to_excel(exp_df),
-                    file_name=f"resumen_categorias_{date.today()}.xlsx",
+                    file_name=f"resumen_ejecutivo_{date.today()}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     # ── HISTORIAL ──────────────────────────────────────────────────────────────
@@ -1742,19 +1758,38 @@ def main():
         with tab1:
             st.markdown("### Usuarios registrados y sus áreas")
             if pa:
-                # Construir tabla de usuarios
-                rows_adm = []
-                for email_u, info_u in sorted(pa.items(), key=lambda x: x[1].get('role','')):
-                    areas_u = ', '.join(info_u.get('areas', []) + info_u.get('admin_areas', []))
-                    rows_adm.append({
-                        'Email':   email_u,
+                # Vista en pantalla: agrupada (todas las áreas en una línea)
+                rows_vista = []
+                # Export: una fila por área (para BUSCARV en Excel)
+                rows_export = []
+                for email_u, info_u in sorted(pa.items(), key=lambda x: x[1].get('nombre','')):
+                    todas_u = info_u.get('areas',[]) + info_u.get('admin_areas',[])
+                    rows_vista.append({
                         'Nombre':  info_u.get('nombre',''),
                         'Rol':     info_u.get('role',''),
-                        'Áreas':   areas_u or '—',
-                        'Legajo':  info_u.get('legajo',''),
+                        'Áreas':   ', '.join(todas_u) if todas_u else '—',
+                        'Email':   email_u,
+                        'Legajo':  str(info_u.get('legajo','')),
                     })
-                df_adm = pd.DataFrame(rows_adm)
+                    for area_u in (todas_u if todas_u else ['—']):
+                        rows_export.append({
+                            'Nombre':  info_u.get('nombre',''),
+                            'Rol':     info_u.get('role',''),
+                            'Área':    area_u,
+                            'Email':   email_u,
+                            'Legajo':  str(info_u.get('legajo','')),
+                        })
+                df_adm   = pd.DataFrame(rows_vista)
+                df_export = pd.DataFrame(rows_export)
                 st.dataframe(df_adm, use_container_width=True, hide_index=True)
+                st.caption(f"{len(rows_export)} filas en el export · {len(rows_vista)} usuarios")
+                st.download_button(
+                    "⬇️ Descargar usuarios y áreas (una área por fila — apto para BUSCARV)",
+                    to_excel(df_export),
+                    file_name=f"usuarios_areas_{date.today()}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key='dl_usuarios_areas'
+                )
 
                 st.markdown("---")
                 st.markdown("### Editar usuario existente")
