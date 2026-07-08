@@ -1031,7 +1031,6 @@ def main():
 
     # ── DASHBOARD ──────────────────────────────────────────────────────────────
     if pagina == "📊 Dashboard":
-        st.markdown("## Dashboard — Vacaciones")
 
         # KPIs scoped al usuario — si es RRHH ve empresa completa, si es Jefe/Admin ve su area
         is_rrhh = (role in ('RRHH', 'Gerente', 'GerenteGeneral'))  # ven empresa completa
@@ -1055,82 +1054,81 @@ def main():
         pct      = round(prog_cap/meta_t*100,1) if meta_t>0 else 0
         # Vencidos: mismo criterio que Centro de Alertas — Estado == VENCIDO
         venc_n   = int((df['Estado']=='VENCIDO').sum()) if 'Estado' in df.columns else 0
-        dp       = int(col_sum(df, col_dp))
+
+        # Calcular avance mensual ANTES de los KPIs para tener sin_prog consistente
+        legs_scope_av = set(df_scope['Legajo'].astype(str).unique())
+        vis_av = df_visma[
+            (df_visma['Legajo'].astype(str).isin(legs_scope_av)) &
+            (df_visma['Estado aus'].isin(['Aprobada','Pendiente'])) &
+            (df_visma['Fecha desde'].dt.year == 2026)
+        ].copy() if not df_visma.empty else pd.DataFrame()
+
+        # Mes seleccionado (default = mes actual, se actualizará con el selectbox)
+        _mes_idx_def = date.today().month - 1
+        # Leer el valor del selectbox si ya fue renderizado (session_state)
+        _mes_key = 'mes_avance_dash'
+        _mes_sel = st.session_state.get(_mes_key, MES_NAMES[_mes_idx_def])
+        _mes_num = MES_NAMES.index(_mes_sel) + 1
+        _dias_mes = [31,28,31,30,31,30,31,31,30,31,30,31][_mes_num-1]
+        _fecha_corte = date(2026, _mes_num, _dias_mes)
+
+        if not vis_av.empty:
+            vis_av['_d'] = vis_av['Cant dias'].apply(safe_float)
+            dias_gozados  = int(vis_av[vis_av['Fecha desde'].dt.date <= _fecha_corte]['_d'].sum())
+            dias_prog_fut = int(vis_av[vis_av['Fecha desde'].dt.date >  _fecha_corte]['_d'].sum())
+        else:
+            dias_gozados = dias_prog_fut = 0
+        # Los 3 siempre suman la meta
+        sin_prog  = max(0, int(meta_t) - dias_gozados - dias_prog_fut)
+        pct_goz   = round(dias_gozados  / meta_t * 100, 1) if meta_t > 0 else 0
+        pct_fut   = round(dias_prog_fut / meta_t * 100, 1) if meta_t > 0 else 0
+        pct_sin   = round(sin_prog      / meta_t * 100, 1) if meta_t > 0 else 0
+
+        dp = sin_prog  # Dias por programar = mismo que sin_prog (fuente única)
 
         c1,c2,c3,c4,c5 = st.columns(5)
         c1.markdown(kpi("Meta 2026 (días)", fmt_num(meta_t)), unsafe_allow_html=True)
         c2.markdown(kpi("N° Colaboradores", fmt_num(n_colab)), unsafe_allow_html=True)
         c3.markdown(kpi("N° Colab. con vac. vencidas", venc_n, FUCSIA), unsafe_allow_html=True)
         c4.markdown(kpi("% Avance Meta 2026", f"{pct}%"), unsafe_allow_html=True)
-        c5.markdown(kpi("Días por programar", fmt_num(dp), MORADO), unsafe_allow_html=True)
+        c5.markdown(kpi("Días por programar", fmt_num(sin_prog), MORADO), unsafe_allow_html=True)
+
+        # Selector de mes junto al título del dashboard
+        col_dash_tit, col_dash_mes = st.columns([3, 2])
+        col_dash_tit.markdown("## Dashboard — Vacaciones")
+        mes_avance = col_dash_mes.selectbox(
+            "Ver gozados hasta el mes:",
+            options=MES_NAMES,
+            index=date.today().month - 1,
+            key='mes_avance_dash'
+        )
+        # Los valores ya están calculados arriba usando session_state
+        # Si el mes cambió, Streamlit re-ejecuta y recalcula automáticamente
 
         st.markdown("---")
 
-        # ── Avance: Gozados / Programados / Sin programar (siempre suman la meta) ──
-        if not df_visma.empty:
-            # Selector de mes al lado del título
-            col_tit_av, col_mes_sel = st.columns([3, 2])
-            col_tit_av.markdown("**📊 Avance de vacaciones 2026**")
-            mes_avance  = col_mes_sel.selectbox(
-                "Ver gozados hasta:",
-                options=MES_NAMES,
-                index=date.today().month - 1,
-                key='mes_avance_dash',
-                label_visibility='collapsed'
-            )
-            mes_num_av = MES_NAMES.index(mes_avance) + 1
-            dias_mes   = [31,28,31,30,31,30,31,31,30,31,30,31][mes_num_av-1]
-            fecha_corte = date(2026, mes_num_av, dias_mes)
-
-            # Visma 2026 del scope del usuario
-            legs_scope = set(df_scope['Legajo'].astype(str).unique())
-            vis_scope  = df_visma[
-                (df_visma['Legajo'].astype(str).isin(legs_scope)) &
-                (df_visma['Estado aus'].isin(['Aprobada','Pendiente'])) &
-                (df_visma['Fecha desde'].dt.year == 2026)
-            ].copy()
-            vis_scope['_d'] = vis_scope['Cant dias'].apply(safe_float)
-
-            # Gozados = fecha <= fin del mes seleccionado
-            dias_gozados  = int(vis_scope[vis_scope['Fecha desde'].dt.date <= fecha_corte]['_d'].sum())
-            # Programados = fecha > fin del mes seleccionado (en Visma pero aún no disfrutados)
-            dias_prog_fut = int(vis_scope[vis_scope['Fecha desde'].dt.date >  fecha_corte]['_d'].sum())
-            # Sin programar = Meta − todo lo que hay en Visma 2026 (gozados + programados)
-            total_visma_2026 = dias_gozados + dias_prog_fut
-            sin_prog = max(0, int(meta_t) - total_visma_2026)
-
-            # Verificación: los 3 siempre suman la meta
-            # dias_gozados + dias_prog_fut + sin_prog = meta_t ✓
-            pct_goz   = round(dias_gozados  / meta_t * 100, 1) if meta_t > 0 else 0
-            pct_fut   = round(dias_prog_fut / meta_t * 100, 1) if meta_t > 0 else 0
-            pct_sin   = round(sin_prog      / meta_t * 100, 1) if meta_t > 0 else 0
-
-            cm1, cm2, cm3 = st.columns(3)
-            cm1.markdown(kpi(f"✅ Gozados hasta {mes_avance}",
-                             fmt_num(dias_gozados),
-                             '#27AE60'), unsafe_allow_html=True)
-            cm2.markdown(kpi(f"📅 Programados (desde {MES_NAMES[mes_num_av] if mes_num_av < 12 else 'Dic'})",
-                             fmt_num(dias_prog_fut),
-                             AZUL), unsafe_allow_html=True)
-            cm3.markdown(kpi("⚠️ Sin programar",
-                             fmt_num(sin_prog),
-                             FUCSIA), unsafe_allow_html=True)
-            # Barra de progreso visual
-            st.markdown(
-                f"<div style='margin:6px 0 2px 0;font-size:11px;color:#666'>"
-                f"Gozados <b>{pct_goz}%</b> · "
-                f"Programados <b>{pct_fut}%</b> · "
-                f"Sin programar <b>{pct_sin}%</b> · "
-                f"Total: {fmt_num(dias_gozados+dias_prog_fut+sin_prog)} = Meta {fmt_num(int(meta_t))}</div>",
-                unsafe_allow_html=True)
-            barra_html = (
-                f"<div style='display:flex;height:10px;border-radius:5px;overflow:hidden;margin-bottom:8px'>"
-                f"<div style='width:{pct_goz}%;background:#27AE60'></div>"
-                f"<div style='width:{pct_fut}%;background:{AZUL}'></div>"
-                f"<div style='width:{pct_sin}%;background:#FFD0E0'></div>"
-                f"</div>"
-            )
-            st.markdown(barra_html, unsafe_allow_html=True)
+        # ── Avance: 3 KPIs gozados/programados/sin programar ─────────────────
+        cm1, cm2, cm3 = st.columns(3)
+        _mes_sig = MES_NAMES[_mes_num] if _mes_num < 12 else 'Dic'
+        cm1.markdown(kpi(f"✅ Gozados hasta {_mes_sel}",
+                         fmt_num(dias_gozados), '#27AE60'), unsafe_allow_html=True)
+        cm2.markdown(kpi(f"📅 Programados (desde {_mes_sig})",
+                         fmt_num(dias_prog_fut), AZUL), unsafe_allow_html=True)
+        cm3.markdown(kpi("⚠️ Sin programar",
+                         fmt_num(sin_prog), FUCSIA), unsafe_allow_html=True)
+        # Resumen y barra proporcional — los 3 siempre suman la meta
+        st.markdown(
+            f"<div style='font-size:10px;color:#888;margin:4px 0 2px'>"
+            f"✅ {pct_goz}% gozados &nbsp;·&nbsp; 📅 {pct_fut}% programados &nbsp;·&nbsp; "
+            f"⚠️ {pct_sin}% sin programar &nbsp;·&nbsp; "
+            f"Total {fmt_num(dias_gozados+dias_prog_fut+sin_prog)} = Meta {fmt_num(int(meta_t))}</div>",
+            unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='display:flex;height:12px;border-radius:6px;overflow:hidden;margin-bottom:12px'>"
+            f"<div style='width:{pct_goz}%;background:#27AE60'></div>"
+            f"<div style='width:{pct_fut}%;background:{AZUL}'></div>"
+            f"<div style='width:{pct_sin}%;background:#FFD0E0'></div>"
+            f"</div>", unsafe_allow_html=True)
 
         st.markdown("---")
 
@@ -1194,12 +1192,13 @@ def main():
                         st.markdown(
                             f"<div style='margin-bottom:10px'>"
                             f"<div style='display:flex;justify-content:space-between;"
-                            f"font-size:13px;margin-bottom:3px'>"
-                            f"<span style='color:{AZUL};font-weight:500'>{row_t['Area']}</span>"
+                            f"font-size:12px;margin-bottom:4px'>"
+                            f"<span style='color:{AZUL};font-weight:600'>{row_t['Area']}</span>"
                             f"<span style='color:{FUCSIA};font-weight:700'>{row_t['Dias']:,} días</span></div>"
-                            f"<div style='height:7px;background:{AZUL_L};border-radius:4px'>"
-                            f"<div style='width:{pct_b}%;height:100%;background:{FUCSIA};"
-                            f"border-radius:4px'></div></div></div>",
+                            f"<div style='height:12px;background:{AZUL_L};border-radius:6px'>"
+                            f"<div style='width:{pct_b}%;height:100%;"
+                            f"background:linear-gradient(90deg,{FUCSIA},{MORADO});"
+                            f"border-radius:6px;min-width:6px'></div></div></div>",
                             unsafe_allow_html=True)
 
             with col_r:
