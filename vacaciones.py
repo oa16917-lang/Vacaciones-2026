@@ -1022,6 +1022,8 @@ def main():
                 "📊 Dashboard","👥 Colaboradores por Área","🔔 Centro de Alertas",
                 "📅 Calendario","📋 Resumen Ejecutivo","📂 Historial de Vacaciones",
             ]
+            if role == 'RRHH':
+                opciones_menu.append("⚙️ Administración")
         pagina = st.radio("", opciones_menu, label_visibility="collapsed")
         st.markdown("<hr style='border-color:rgba(255,255,255,0.2)'>",unsafe_allow_html=True)
         if st.button("Cerrar sesión"):
@@ -1722,6 +1724,194 @@ def main():
         st.download_button("⬇️ Descargar historial", to_excel(hf_show),
             file_name=f"historial_{date.today()}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    # ── ADMINISTRACIÓN ────────────────────────────────────────────────────────
+    elif pagina == "⚙️ Administración" and role == 'RRHH':
+        st.markdown("## ⚙️ Administración del Sistema")
+        st.caption("Gestión de áreas, responsables y jerarquía — solo visible para RRHH")
+
+        tab1, tab2, tab3 = st.tabs(["👥 Usuarios y Áreas", "🏢 Jerarquía", "➕ Nuevo Usuario"])
+
+        # ── TAB 1: USUARIOS Y ÁREAS ─────────────────────────────────────────
+        with tab1:
+            st.markdown("### Usuarios registrados y sus áreas")
+            if pa:
+                # Construir tabla de usuarios
+                rows_adm = []
+                for email_u, info_u in sorted(pa.items(), key=lambda x: x[1].get('role','')):
+                    areas_u = ', '.join(info_u.get('areas', []) + info_u.get('admin_areas', []))
+                    rows_adm.append({
+                        'Email':   email_u,
+                        'Nombre':  info_u.get('nombre',''),
+                        'Rol':     info_u.get('role',''),
+                        'Áreas':   areas_u or '—',
+                        'Legajo':  info_u.get('legajo',''),
+                    })
+                df_adm = pd.DataFrame(rows_adm)
+                st.dataframe(df_adm, use_container_width=True, hide_index=True)
+
+                st.markdown("---")
+                st.markdown("### Editar usuario existente")
+
+                col_sel1, col_sel2 = st.columns([2,1])
+                email_sel = col_sel1.selectbox("Seleccionar usuario",
+                    options=sorted(pa.keys()),
+                    format_func=lambda e: f"{pa[e].get('nombre','')} ({e})")
+
+                if email_sel and email_sel in pa:
+                    info_sel = pa[email_sel].copy()
+                    st.markdown(f"**Editando:** {info_sel.get('nombre','')} — {email_sel}")
+
+                    col_e1, col_e2 = st.columns(2)
+                    nuevo_nombre = col_e1.text_input("Nombre", value=info_sel.get('nombre',''), key='edit_nombre')
+                    nuevo_rol    = col_e2.selectbox("Rol",
+                        ['RRHH','GerenteGeneral','Gerente','SubGerente','Jefe','Administrador'],
+                        index=['RRHH','GerenteGeneral','Gerente','SubGerente','Jefe','Administrador'].index(
+                            info_sel.get('role','Administrador')) if info_sel.get('role') in
+                            ['RRHH','GerenteGeneral','Gerente','SubGerente','Jefe','Administrador'] else 5,
+                        key='edit_rol')
+
+                    nuevo_legajo = st.text_input("Legajo", value=str(info_sel.get('legajo','')), key='edit_legajo')
+
+                    # Areas actuales
+                    areas_actuales = info_sel.get('areas', [])
+                    st.markdown("**Áreas asignadas:**")
+
+                    # Obtener todas las areas disponibles del sistema
+                    todas_areas = []
+                    if area_sistema:
+                        todas_areas = sorted(set(area_sistema.get('area', {}).values()))
+
+                    # Multiselect para áreas
+                    nuevas_areas = st.multiselect(
+                        "Seleccionar áreas (puedes agregar múltiples)",
+                        options=todas_areas,
+                        default=[a for a in areas_actuales if a in todas_areas],
+                        key='edit_areas'
+                    )
+
+                    # Campo para agregar área nueva que no esté en la lista
+                    nueva_area_manual = st.text_input(
+                        "O escribir área nueva (si no aparece en la lista arriba)",
+                        placeholder="Ej: NUEVO CENTRO COMERCIAL",
+                        key='edit_area_manual'
+                    ).strip().upper()
+
+                    areas_finales = list(nuevas_areas)
+                    if nueva_area_manual and nueva_area_manual not in areas_finales:
+                        areas_finales.append(nueva_area_manual)
+
+                    if st.button("💾 Guardar cambios", key='btn_guardar_usuario'):
+                        # Actualizar en el JSON local (en memoria)
+                        pa[email_sel]['nombre']  = nuevo_nombre
+                        pa[email_sel]['role']    = nuevo_rol
+                        pa[email_sel]['legajo']  = nuevo_legajo
+                        pa[email_sel]['areas']   = areas_finales
+                        # Mostrar el JSON actualizado para copiar a GitHub
+                        import json as json_mod
+                        st.success(f"✅ {nuevo_nombre} actualizado en memoria. Copia el JSON abajo y sube a GitHub.")
+                        st.markdown("**Contenido actualizado de acceso_persona.json** (copia y sube a GitHub):")
+                        st.code(json_mod.dumps(pa, ensure_ascii=False, indent=2), language='json')
+                        st.download_button(
+                            "⬇️ Descargar acceso_persona.json actualizado",
+                            data=json_mod.dumps(pa, ensure_ascii=False, indent=2).encode('utf-8'),
+                            file_name='acceso_persona.json',
+                            mime='application/json'
+                        )
+
+        # ── TAB 2: JERARQUÍA ────────────────────────────────────────────────
+        with tab2:
+            st.markdown("### Estructura jerárquica actual")
+            try:
+                import urllib.request, io
+                url_jer = 'https://raw.githubusercontent.com/oa16917-lang/Vacaciones-2026/main/jerarquia.csv'
+                with urllib.request.urlopen(url_jer) as r:
+                    df_jer = pd.read_csv(io.StringIO(r.read().decode('utf-8')))
+                st.dataframe(df_jer, use_container_width=True, hide_index=True)
+
+                st.markdown("---")
+                st.markdown("### Agregar nueva fila a la jerarquía")
+                col_j1, col_j2, col_j3, col_j4 = st.columns(4)
+                ger_opts  = [''] + sorted(df_jer['Gerente'].dropna().unique().tolist())
+                sg_opts   = [''] + sorted(df_jer['Sub_Gerente'].dropna().unique().tolist())
+                jef_opts  = [''] + sorted(df_jer['Jefe'].dropna().unique().tolist())
+
+                nj_ger  = col_j1.selectbox("Gerente",    ger_opts, key='nj_ger')
+                nj_sg   = col_j2.selectbox("Sub Gerente", sg_opts,  key='nj_sg')
+                nj_jefe = col_j3.selectbox("Jefe",        jef_opts, key='nj_jefe')
+                nj_adm  = col_j4.text_input("Administrador", key='nj_adm')
+
+                if st.button("➕ Agregar fila", key='btn_add_jer'):
+                    if nj_ger or nj_sg or nj_jefe or nj_adm:
+                        nueva_fila = pd.DataFrame([{
+                            'Gerente': nj_ger, 'Sub_Gerente': nj_sg,
+                            'Jefe': nj_jefe, 'Administrador': nj_adm, 'Notas': ''
+                        }])
+                        df_jer_upd = pd.concat([df_jer, nueva_fila], ignore_index=True)
+                        csv_bytes  = df_jer_upd.to_csv(index=False).encode('utf-8')
+                        st.success("✅ Fila agregada. Descarga el CSV y sube a GitHub.")
+                        st.download_button(
+                            "⬇️ Descargar jerarquia.csv actualizado",
+                            data=csv_bytes,
+                            file_name='jerarquia.csv',
+                            mime='text/csv'
+                        )
+                    else:
+                        st.warning("Completa al menos un campo.")
+            except Exception as e_jer:
+                st.error(f"No se pudo cargar jerarquia.csv desde GitHub: {e_jer}")
+
+        # ── TAB 3: NUEVO USUARIO ────────────────────────────────────────────
+        with tab3:
+            st.markdown("### Registrar nuevo usuario en el sistema")
+            col_n1, col_n2 = st.columns(2)
+            nu_nombre  = col_n1.text_input("Nombre completo", placeholder="Ej: Juan Pérez", key='nu_nombre')
+            nu_email   = col_n2.text_input("Email", placeholder="jperez@apparka.pe", key='nu_email')
+            col_n3, col_n4 = st.columns(2)
+            nu_rol     = col_n3.selectbox("Rol",
+                ['Administrador','Jefe','SubGerente','Gerente','RRHH'], key='nu_rol')
+            nu_legajo  = col_n4.text_input("Legajo", placeholder="Ej: 1045077315", key='nu_legajo')
+
+            # Password automático = legajo sin los dos primeros dígitos
+            if nu_legajo and len(nu_legajo) > 2:
+                pwd_sugerida = nu_legajo[2:]
+                st.caption(f"Contraseña sugerida (legajo sin '10' iniciales): **{pwd_sugerida}**")
+            else:
+                pwd_sugerida = ''
+
+            todas_areas_n = sorted(set(area_sistema.get('area', {}).values())) if area_sistema else []
+            nu_areas = st.multiselect("Áreas asignadas", options=todas_areas_n, key='nu_areas')
+            nu_area_manual = st.text_input(
+                "Área nueva (si no aparece arriba)",
+                placeholder="Ej: NUEVO CENTRO COMERCIAL",
+                key='nu_area_manual'
+            ).strip().upper()
+
+            areas_nu = list(nu_areas)
+            if nu_area_manual and nu_area_manual not in areas_nu:
+                areas_nu.append(nu_area_manual)
+
+            if st.button("➕ Crear usuario", key='btn_crear_usuario'):
+                if not nu_email or not nu_nombre:
+                    st.error("Email y nombre son obligatorios.")
+                elif nu_email in pa:
+                    st.error(f"El email {nu_email} ya existe en el sistema.")
+                else:
+                    import json as json_mod
+                    pa[nu_email] = {
+                        'role':    nu_rol,
+                        'nombre':  nu_nombre,
+                        'password': pwd_sugerida,
+                        'areas':   areas_nu,
+                        'legajo':  nu_legajo,
+                    }
+                    st.success(f"✅ Usuario {nu_nombre} creado. Descarga el JSON y sube a GitHub.")
+                    st.download_button(
+                        "⬇️ Descargar acceso_persona.json con el nuevo usuario",
+                        data=json_mod.dumps(pa, ensure_ascii=False, indent=2).encode('utf-8'),
+                        file_name='acceso_persona.json',
+                        mime='application/json'
+                    )
 
 if __name__ == '__main__':
     main()
