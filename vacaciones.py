@@ -1730,7 +1730,13 @@ def main():
         st.markdown("## ⚙️ Administración del Sistema")
         st.caption("Gestión de áreas, responsables y jerarquía — solo visible para RRHH")
 
-        tab1, tab2, tab3 = st.tabs(["👥 Usuarios y Áreas", "🏢 Jerarquía", "➕ Nuevo Usuario"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "👥 Usuarios y Áreas",
+            "❌ Dar de baja usuario",
+            "🏢 Jerarquía",
+            "🗺️ Crear / Reasignar Área",
+            "➕ Nuevo Usuario",
+        ])
 
         # ── TAB 1: USUARIOS Y ÁREAS ─────────────────────────────────────────
         with tab1:
@@ -1819,8 +1825,74 @@ def main():
                             mime='application/json'
                         )
 
-        # ── TAB 2: JERARQUÍA ────────────────────────────────────────────────
+        # ── TAB 2: DAR DE BAJA USUARIO ─────────────────────────────────────
         with tab2:
+            st.markdown("### Dar de baja o eliminar usuario del sistema")
+            st.warning("⚠️ Esta acción elimina al usuario del sistema. Sus colaboradores quedan sin administrador asignado hasta que asignes uno nuevo.")
+
+            if pa:
+                email_baja = st.selectbox(
+                    "Seleccionar usuario a dar de baja",
+                    options=sorted([e for e in pa.keys() if pa[e].get('role') != 'RRHH']),
+                    format_func=lambda e: f"{pa[e].get('nombre','')} — {pa[e].get('role','')} ({e})",
+                    key='baja_email'
+                )
+                if email_baja:
+                    info_baja = pa[email_baja]
+                    st.markdown(f"**Usuario seleccionado:**")
+                    col_b1, col_b2, col_b3 = st.columns(3)
+                    col_b1.metric("Nombre",  info_baja.get('nombre',''))
+                    col_b2.metric("Rol",     info_baja.get('role',''))
+                    col_b3.metric("Áreas",   str(len(info_baja.get('areas', []))))
+
+                    areas_del = info_baja.get('areas', [])
+                    if areas_del:
+                        st.markdown("**Áreas que quedarán sin responsable:**")
+                        for a in areas_del:
+                            st.markdown(f"&nbsp;&nbsp;🔴 {a}")
+
+                    st.markdown("---")
+                    col_op1, col_op2 = st.columns(2)
+
+                    # Opción A: reasignar áreas antes de eliminar
+                    col_op1.markdown("**Opción 1: Reasignar áreas a otro usuario antes de eliminar**")
+                    otros_users = [e for e in pa.keys() if e != email_baja and pa[e].get('role') != 'RRHH']
+                    nuevo_resp  = col_op1.selectbox(
+                        "Reasignar áreas a:",
+                        options=['— No reasignar —'] + sorted(otros_users,
+                            key=lambda e: pa[e].get('nombre','')),
+                        format_func=lambda e: e if e.startswith('—') else f"{pa[e].get('nombre','')} ({pa[e].get('role','')})",
+                        key='baja_reasignar'
+                    )
+
+                    confirmar = st.checkbox(
+                        f"Confirmo que deseo eliminar a {info_baja.get('nombre','')} del sistema",
+                        key='baja_confirmar'
+                    )
+
+                    if st.button("🗑️ Dar de baja", key='btn_baja', type='primary'):
+                        if not confirmar:
+                            st.error("Debes confirmar la acción marcando la casilla.")
+                        else:
+                            import json as json_mod
+                            pa_upd = {k: v for k, v in pa.items() if k != email_baja}
+                            # Reasignar áreas si se seleccionó un nuevo responsable
+                            if nuevo_resp and not nuevo_resp.startswith('—') and areas_del:
+                                areas_existentes = pa_upd[nuevo_resp].get('areas', [])
+                                pa_upd[nuevo_resp]['areas'] = list(set(areas_existentes + areas_del))
+                            st.success(f"✅ {info_baja.get('nombre','')} eliminado. Descarga y sube a GitHub.")
+                            if nuevo_resp and not nuevo_resp.startswith('—'):
+                                st.info(f"Las {len(areas_del)} áreas fueron reasignadas a {pa_upd[nuevo_resp].get('nombre','')}")
+                            st.download_button(
+                                "⬇️ Descargar acceso_persona.json actualizado",
+                                data=json_mod.dumps(pa_upd, ensure_ascii=False, indent=2).encode('utf-8'),
+                                file_name='acceso_persona.json',
+                                mime='application/json',
+                                key='dl_baja'
+                            )
+
+        # ── TAB 3: JERARQUÍA ────────────────────────────────────────────────
+        with tab3:
             st.markdown("### Estructura jerárquica actual")
             try:
                 import urllib.request, io
@@ -1861,8 +1933,149 @@ def main():
             except Exception as e_jer:
                 st.error(f"No se pudo cargar jerarquia.csv desde GitHub: {e_jer}")
 
-        # ── TAB 3: NUEVO USUARIO ────────────────────────────────────────────
-        with tab3:
+        # ── TAB 4: CREAR / REASIGNAR ÁREA ──────────────────────────────────
+        with tab4:
+            st.markdown("### Crear nueva área o reasignar área existente")
+
+            import json as json_mod
+
+            todas_areas_adm = sorted(set(area_sistema.get('area', {}).values())) if area_sistema else []
+
+            subtab_a, subtab_b = st.tabs(["🆕 Crear área nueva", "🔄 Reasignar área existente"])
+
+            with subtab_a:
+                st.markdown("**Crear una nueva área y asignarla a un responsable**")
+                col_ca1, col_ca2 = st.columns(2)
+                nueva_area_nombre = col_ca1.text_input(
+                    "Nombre del área",
+                    placeholder="Ej: PLAZA VEA INDEPENDENCIA",
+                    key='ca_nombre'
+                ).strip().upper()
+                nueva_area_cat = col_ca2.selectbox(
+                    "Categoría",
+                    ['OPERATIVOS','SUPERVISORES','BACK OFFICE'],
+                    key='ca_cat'
+                )
+
+                col_ca3, col_ca4 = st.columns(2)
+                # Grupo al que pertenece
+                grupos_disp = []
+                try:
+                    import urllib.request, io
+                    url_grp = 'https://raw.githubusercontent.com/oa16917-lang/Vacaciones-2026/main/grupos_area.json'
+                    with urllib.request.urlopen(url_grp) as r:
+                        grupos_json = json_mod.loads(r.read().decode('utf-8'))
+                    grupos_disp = sorted(set(grupos_json.values()))
+                except:
+                    grupos_disp = []
+
+                nueva_area_grupo = col_ca3.selectbox(
+                    "Grupo / Gerencia",
+                    options=['— Seleccionar —'] + grupos_disp,
+                    key='ca_grupo'
+                )
+
+                # Responsable
+                users_resp = [e for e in pa.keys() if pa[e].get('role') in ('Administrador','Jefe','SubGerente')]
+                nueva_area_resp = col_ca4.selectbox(
+                    "Responsable (Administrador)",
+                    options=['— Sin asignar —'] + sorted(users_resp,
+                        key=lambda e: pa[e].get('nombre','')),
+                    format_func=lambda e: e if e.startswith('—') else f"{pa[e].get('nombre','')} — {pa[e].get('role','')}",
+                    key='ca_resp'
+                )
+                # Jefe del área
+                users_jefe = [e for e in pa.keys() if pa[e].get('role') in ('Jefe','SubGerente','Gerente')]
+                nueva_area_jefe = st.selectbox(
+                    "Jefe del área",
+                    options=['— Sin asignar —'] + sorted(users_jefe,
+                        key=lambda e: pa[e].get('nombre','')),
+                    format_func=lambda e: e if e.startswith('—') else f"{pa[e].get('nombre','')} — {pa[e].get('role','')}",
+                    key='ca_jefe'
+                )
+
+                if st.button("✅ Crear área", key='btn_crear_area'):
+                    if not nueva_area_nombre:
+                        st.error("El nombre del área es obligatorio.")
+                    else:
+                        pa_upd = {k: dict(v) for k, v in pa.items()}
+                        cambios = []
+                        # Asignar área al responsable
+                        if nueva_area_resp and not nueva_area_resp.startswith('—'):
+                            areas_act = pa_upd[nueva_area_resp].get('areas', [])
+                            if nueva_area_nombre not in areas_act:
+                                pa_upd[nueva_area_resp]['areas'] = areas_act + [nueva_area_nombre]
+                                cambios.append(f"Área '{nueva_area_nombre}' asignada a {pa_upd[nueva_area_resp]['nombre']}")
+                        # Asignar área al jefe
+                        if nueva_area_jefe and not nueva_area_jefe.startswith('—') and nueva_area_jefe != nueva_area_resp:
+                            areas_jefe = pa_upd[nueva_area_jefe].get('areas', [])
+                            if nueva_area_nombre not in areas_jefe:
+                                pa_upd[nueva_area_jefe]['areas'] = areas_jefe + [nueva_area_nombre]
+                                cambios.append(f"Área también agregada al jefe {pa_upd[nueva_area_jefe]['nombre']}")
+
+                        st.success(f"✅ Área '{nueva_area_nombre}' creada.")
+                        for c in cambios:
+                            st.info(c)
+                        st.info("Nota: el área aparecerá en el sistema cuando exista al menos un colaborador con esa área en Visma o en el archivo de atributos.")
+                        st.download_button(
+                            "⬇️ Descargar acceso_persona.json actualizado",
+                            data=json_mod.dumps(pa_upd, ensure_ascii=False, indent=2).encode('utf-8'),
+                            file_name='acceso_persona.json',
+                            mime='application/json',
+                            key='dl_nueva_area'
+                        )
+
+            with subtab_b:
+                st.markdown("**Reasignar un área de un responsable a otro**")
+                col_ra1, col_ra2 = st.columns(2)
+                area_reasignar = col_ra1.selectbox(
+                    "Área a reasignar",
+                    options=['— Seleccionar —'] + todas_areas_adm,
+                    key='ra_area'
+                )
+                # Mostrar quien la tiene actualmente
+                resp_actual = '—'
+                if area_reasignar and not area_reasignar.startswith('—'):
+                    for e, info in pa.items():
+                        if area_reasignar in info.get('areas', []) + info.get('admin_areas', []):
+                            resp_actual = f"{info.get('nombre','')} ({info.get('role','')})"; break
+                col_ra1.caption(f"Responsable actual: **{resp_actual}**")
+
+                nuevo_resp_ra = col_ra2.selectbox(
+                    "Nuevo responsable",
+                    options=['— Seleccionar —'] + sorted(
+                        [e for e in pa.keys() if pa[e].get('role') != 'RRHH'],
+                        key=lambda e: pa[e].get('nombre','')),
+                    format_func=lambda e: e if e.startswith('—') else f"{pa[e].get('nombre','')} — {pa[e].get('role','')}",
+                    key='ra_nuevo_resp'
+                )
+
+                if st.button("🔄 Reasignar área", key='btn_reasignar'):
+                    if area_reasignar.startswith('—') or nuevo_resp_ra.startswith('—'):
+                        st.error("Selecciona el área y el nuevo responsable.")
+                    else:
+                        pa_upd = {k: dict(v) for k,v in pa.items()}
+                        # Quitar del responsable actual
+                        for e in pa_upd:
+                            if area_reasignar in pa_upd[e].get('areas', []):
+                                pa_upd[e]['areas'] = [a for a in pa_upd[e]['areas'] if a != area_reasignar]
+                            if area_reasignar in pa_upd[e].get('admin_areas', []):
+                                pa_upd[e]['admin_areas'] = [a for a in pa_upd[e]['admin_areas'] if a != area_reasignar]
+                        # Asignar al nuevo
+                        areas_nuevo = pa_upd[nuevo_resp_ra].get('areas', [])
+                        if area_reasignar not in areas_nuevo:
+                            pa_upd[nuevo_resp_ra]['areas'] = areas_nuevo + [area_reasignar]
+                        st.success(f"✅ '{area_reasignar}' reasignada a {pa_upd[nuevo_resp_ra]['nombre']}. Descarga y sube a GitHub.")
+                        st.download_button(
+                            "⬇️ Descargar acceso_persona.json actualizado",
+                            data=json_mod.dumps(pa_upd, ensure_ascii=False, indent=2).encode('utf-8'),
+                            file_name='acceso_persona.json',
+                            mime='application/json',
+                            key='dl_reasignar'
+                        )
+
+        # ── TAB 5: NUEVO USUARIO ────────────────────────────────────────────
+        with tab5:
             st.markdown("### Registrar nuevo usuario en el sistema")
             col_n1, col_n2 = st.columns(2)
             nu_nombre  = col_n1.text_input("Nombre completo", placeholder="Ej: Juan Pérez", key='nu_nombre')
