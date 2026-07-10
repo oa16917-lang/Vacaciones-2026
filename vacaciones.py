@@ -1090,14 +1090,22 @@ def main():
             dias_prog_fut = int(vis_av[vis_av['Fecha desde'].dt.date >  _fecha_corte]['_d'].sum())
         else:
             dias_gozados = dias_prog_fut = 0
-        # Sin programar = meta - gozados - programados_futuros
-        # Estos 3 SIEMPRE suman exactamente la meta
-        sin_prog  = max(0, int(meta_t) - dias_gozados - dias_prog_fut)
-        pct_goz   = round(dias_gozados  / meta_t * 100, 1) if meta_t > 0 else 0
-        pct_fut   = round(dias_prog_fut / meta_t * 100, 1) if meta_t > 0 else 0
-        pct_sin   = round(sin_prog      / meta_t * 100, 1) if meta_t > 0 else 0
+        # sin_prog = meta - prog_cap
+        # prog_cap = suma capeada por meta individual (si alguien tiene 32 días
+        # pero meta=30, solo cuentan 30). Por eso % Avance = prog_cap/meta = 90%.
+        # Gozados y Programados también se capean para que los 3 sumen la meta.
+        # Cap por colaborador: gozado_cap = min(prog_visma, meta_ind)
+        # Pero ya tenemos prog_cap global. Distribuimos proporcionalmente:
+        # gozados_cap = min(dias_gozados, prog_cap) si dias_gozados <= prog_cap
+        # prog_fut_cap = prog_cap - gozados_cap
+        gozados_cap  = min(dias_gozados, int(prog_cap))
+        prog_fut_cap = max(0, int(prog_cap) - gozados_cap)
+        sin_prog     = max(0, int(meta_t) - int(prog_cap))
+        pct_goz      = round(gozados_cap  / meta_t * 100, 1) if meta_t > 0 else 0
+        pct_fut      = round(prog_fut_cap / meta_t * 100, 1) if meta_t > 0 else 0
+        pct_sin      = round(sin_prog     / meta_t * 100, 1) if meta_t > 0 else 0
 
-        dp = int(col_sum(df, col_dp)) if col_dp else sin_prog  # KPI individual
+        dp = sin_prog
 
         c1,c2,c3,c4,c5 = st.columns(5)
         c1.markdown(kpi("Meta 2026 (días)", fmt_num(meta_t)), unsafe_allow_html=True)
@@ -1114,9 +1122,9 @@ def main():
         cm1, cm2, cm3 = st.columns(3)
         _mes_sig = MES_NAMES[_mes_num] if _mes_num < 12 else 'Dic'
         cm1.markdown(kpi(f"✅ Gozados hasta {_mes_sel}",
-                         fmt_num(dias_gozados), '#27AE60'), unsafe_allow_html=True)
+                         fmt_num(gozados_cap), '#27AE60'), unsafe_allow_html=True)
         cm2.markdown(kpi(f"📅 Programados (desde {_mes_sig})",
-                         fmt_num(dias_prog_fut), AZUL), unsafe_allow_html=True)
+                         fmt_num(prog_fut_cap), AZUL), unsafe_allow_html=True)
         cm3.markdown(kpi("⚠️ Sin programar",
                          fmt_num(sin_prog), FUCSIA), unsafe_allow_html=True)
         # Resumen y barra proporcional — los 3 siempre suman la meta
@@ -1124,7 +1132,7 @@ def main():
             f"<div style='font-size:10px;color:#888;margin:4px 0 2px'>"
             f"✅ {pct_goz}% gozados &nbsp;·&nbsp; 📅 {pct_fut}% programados &nbsp;·&nbsp; "
             f"⚠️ {pct_sin}% sin programar &nbsp;·&nbsp; "
-            f"Gozados + Programados + Sin programar = {fmt_num(dias_gozados)}+{fmt_num(dias_prog_fut)}+{fmt_num(sin_prog)} = Meta {fmt_num(int(meta_t))}</div>",
+            f"Gozados + Programados + Sin programar = {fmt_num(gozados_cap)}+{fmt_num(prog_fut_cap)}+{fmt_num(sin_prog)} = Meta {fmt_num(int(meta_t))}</div>",
             unsafe_allow_html=True)
         st.markdown(
             f"<div style='display:flex;height:12px;border-radius:6px;overflow:hidden;margin-bottom:12px'>"
