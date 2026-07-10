@@ -1090,15 +1090,14 @@ def main():
             dias_prog_fut = int(vis_av[vis_av['Fecha desde'].dt.date >  _fecha_corte]['_d'].sum())
         else:
             dias_gozados = dias_prog_fut = 0
-        # Sin programar = meta - prog_cap (misma base que el % Avance del KPI)
-        # Así: gozados% + programados% + sin_programar% = 100%
-        # Y "Días por programar" coincide con el 10% restante del % Avance
-        sin_prog  = max(0, int(meta_t) - int(prog_cap))
+        # Sin programar = meta - gozados - programados_futuros
+        # Estos 3 SIEMPRE suman exactamente la meta
+        sin_prog  = max(0, int(meta_t) - dias_gozados - dias_prog_fut)
         pct_goz   = round(dias_gozados  / meta_t * 100, 1) if meta_t > 0 else 0
         pct_fut   = round(dias_prog_fut / meta_t * 100, 1) if meta_t > 0 else 0
         pct_sin   = round(sin_prog      / meta_t * 100, 1) if meta_t > 0 else 0
 
-        dp = sin_prog  # Dias por programar = mismo que sin_prog (fuente única)
+        dp = int(col_sum(df, col_dp)) if col_dp else sin_prog  # KPI individual
 
         c1,c2,c3,c4,c5 = st.columns(5)
         c1.markdown(kpi("Meta 2026 (días)", fmt_num(meta_t)), unsafe_allow_html=True)
@@ -1125,7 +1124,7 @@ def main():
             f"<div style='font-size:10px;color:#888;margin:4px 0 2px'>"
             f"✅ {pct_goz}% gozados &nbsp;·&nbsp; 📅 {pct_fut}% programados &nbsp;·&nbsp; "
             f"⚠️ {pct_sin}% sin programar &nbsp;·&nbsp; "
-            f"Total {fmt_num(dias_gozados+dias_prog_fut+sin_prog)} = Meta {fmt_num(int(meta_t))}</div>",
+            f"Gozados + Programados + Sin programar = {fmt_num(dias_gozados)}+{fmt_num(dias_prog_fut)}+{fmt_num(sin_prog)} = Meta {fmt_num(int(meta_t))}</div>",
             unsafe_allow_html=True)
         st.markdown(
             f"<div style='display:flex;height:12px;border-radius:6px;overflow:hidden;margin-bottom:12px'>"
