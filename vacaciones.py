@@ -1098,14 +1098,16 @@ def main():
         # Pero ya tenemos prog_cap global. Distribuimos proporcionalmente:
         # gozados_cap = min(dias_gozados, prog_cap) si dias_gozados <= prog_cap
         # prog_fut_cap = prog_cap - gozados_cap
-        gozados_cap  = min(dias_gozados, int(prog_cap))
-        prog_fut_cap = max(0, int(prog_cap) - gozados_cap)
-        sin_prog     = max(0, int(meta_t) - int(prog_cap))
+        # Usar round() en prog_cap para evitar acumulación de decimales
+        prog_cap_int = round(prog_cap)
+        gozados_cap  = min(dias_gozados, prog_cap_int)
+        prog_fut_cap = max(0, prog_cap_int - gozados_cap)
+        sin_prog     = max(0, round(meta_t) - prog_cap_int)
         pct_goz      = round(gozados_cap  / meta_t * 100, 1) if meta_t > 0 else 0
         pct_fut      = round(prog_fut_cap / meta_t * 100, 1) if meta_t > 0 else 0
         pct_sin      = round(sin_prog     / meta_t * 100, 1) if meta_t > 0 else 0
 
-        dp = sin_prog
+        dp = sin_prog  # KPI "Días por programar" = exactamente sin_prog
 
         c1,c2,c3,c4,c5 = st.columns(5)
         c1.markdown(kpi("Meta 2026 (días)", fmt_num(meta_t)), unsafe_allow_html=True)
@@ -1671,14 +1673,16 @@ def main():
             for gv in sorted(df[grp].dropna().unique()):
                 gd     = df[df[grp]==gv]
                 meta_g = col_sum(gd, col_meta)
-                prog_g = col_sum(gd, 'Prog_visma')
-                dp_g   = int(col_sum(gd, col_dp))
+                # Usar cap_sum igual que el Dashboard (capea por meta individual)
+                prog_g = cap_sum(gd, 'Prog_visma', col_meta)
+                dp_g   = max(0, int(meta_g) - int(prog_g))
                 venc_g = int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0
 
                 render_fila(gv, len(gd), meta_g, prog_g, dp_g, venc_g, 'gerencia')
+                pct_g  = round(min(prog_g, meta_g)/meta_g*100,1) if meta_g>0 else 0
                 all_rows_export.append({'Nivel':'Gerencia','Gerencia':gv,'Categoría':'',
                     'HC':len(gd),'Meta 2026':int(meta_g),'Días programados':int(prog_g),
-                    '% Avance':f"{pct_directo(prog_g,meta_g)}%",'Días x prog.':dp_g,'Vencidos':venc_g})
+                    '% Avance':f"{pct_g}%",'Días x prog.':dp_g,'Vencidos':venc_g})
 
                 # Categorías
                 if col_cat and col_cat in gd.columns:
@@ -1686,13 +1690,14 @@ def main():
                         gc = gd[gd[col_cat].str.upper()==cat]
                         if gc.empty: continue
                         meta_c = col_sum(gc, col_meta)
-                        prog_c = col_sum(gc, 'Prog_visma')
-                        dp_c   = int(col_sum(gc, col_dp))
+                        prog_c = cap_sum(gc, 'Prog_visma', col_meta)
+                        dp_c   = max(0, int(meta_c) - int(prog_c))
                         venc_c = int((gc['Vencidos_real']>0).sum()) if 'Vencidos_real' in gc.columns else 0
                         render_fila(cat.title(), len(gc), meta_c, prog_c, dp_c, venc_c, 'categoria')
+                        pct_c  = round(min(prog_c,meta_c)/meta_c*100,1) if meta_c>0 else 0
                         all_rows_export.append({'Nivel':'Categoría','Gerencia':gv,'Categoría':cat.title(),
                             'HC':len(gc),'Meta 2026':int(meta_c),'Días programados':int(prog_c),
-                            '% Avance':f"{pct_directo(prog_c,meta_c)}%",'Días x prog.':dp_c,'Vencidos':venc_c})
+                            '% Avance':f"{pct_c}%",'Días x prog.':dp_c,'Vencidos':venc_c})
 
                 # Subtotal de gerencia
                 render_fila(gv, len(gd), meta_g, prog_g, dp_g, venc_g, 'subtotal')
