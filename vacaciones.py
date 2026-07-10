@@ -1577,12 +1577,29 @@ def main():
     # ── RESUMEN EJECUTIVO ──────────────────────────────────────────────────────
     elif pagina == "📋 Resumen Ejecutivo":
         st.markdown("## Resumen Ejecutivo por Gerencia")
+        # Base IDÉNTICA al Dashboard: RRHH/Gerente/GerenteGeneral ven la empresa
+        # completa (df_full, incluye colaboradores sin AREA). Los demás roles ven su df
+        # ya filtrado. Así los totales del Resumen cuadran con el Dashboard.
+        is_full_re = role in ('RRHH', 'Gerente', 'GerenteGeneral')
+        df_re      = df_full if is_full_re else df
+
+        def prog_efectivo_grupo(gd):
+            """Réplica exacta del Dashboard: activos capeados a su meta individual
+            + cesados contados al 100% de su meta. Así el % Avance coincide."""
+            if 'es_cesado' in gd.columns:
+                act = gd[~gd['es_cesado']]
+                ces = gd[gd['es_cesado']]
+            else:
+                act = gd
+                ces = gd.iloc[0:0]
+            return cap_sum(act, 'Prog_visma', col_meta) + col_sum(ces, col_meta)
+
         # Para RRHH/Gerente: agrupar por Gerente o Sub_Gerente
         # Para SubGerente/Jefe/Admin: agrupar por Jefe (o Administrador si no hay Jefe)
         # Determinar columna de agrupacion segun rol
         def primera_col_con_datos(candidatos):
             for c in candidatos:
-                if c and c in df.columns and df[c].notna().any():
+                if c and c in df_re.columns and df_re[c].notna().any():
                     return c
             return None
 
@@ -1598,7 +1615,7 @@ def main():
             grp = primera_col_con_datos(['Administrador', col_area, col_jefe])
         else:
             grp = primera_col_con_datos(['Administrador', col_area, col_jefe])
-        if grp and grp in df.columns:
+        if grp and grp in df_re.columns:
             CATS = ['OPERATIVOS','SUPERVISORES','BACK OFFICE']
 
             def fila_grupo(gd, label, nivel='gerencia'):
@@ -1639,7 +1656,10 @@ def main():
                 # Capear prog a meta (no puede superar 100% de avance)
                 prog_cap_f = min(prog, meta)
                 pct = pct_directo(prog_cap_f, meta)
-                dp_f = max(0, int(meta) - int(prog_cap_f))
+                # Redondear igual que el Dashboard (round, no int) para que el TOTAL cuadre
+                m_i  = int(round(meta))
+                p_i  = int(round(prog_cap_f))
+                dp_f = max(0, m_i - p_i)
                 ca,cb,cc,cd,ce,cf = st.columns(COLS_RE)
                 if nivel == 'gerencia':
                     ca.markdown(f"<div style='background:{AZUL};color:white;padding:6px 10px;"
@@ -1657,31 +1677,48 @@ def main():
                     ca.markdown(f"<div style='background:{AZUL_L};color:{AZUL};padding:4px 10px 4px 24px;"
                                 f"border-radius:4px;font-size:12px'>↳ {label}</div>",
                                 unsafe_allow_html=True)
+                # La cabecera de gerencia es SOLO un rótulo: los números agregados
+                # van únicamente en la fila Subtotal, para no duplicarlos.
+                solo_label = (nivel == 'gerencia')
                 es_total = nivel in ('subtotal','total')
                 bld = '<b>' if es_total else ''
                 ebd = '</b>' if es_total else ''
-                cb.markdown(f"<div style='text-align:right;font-size:12px'>{bld}{hc:,}{ebd}</div>", unsafe_allow_html=True)
-                cc.markdown(f"<div style='text-align:right;font-size:12px'>{bld}{int(meta):,}{ebd}</div>", unsafe_allow_html=True)
-                cd.markdown(f"<div style='text-align:right;font-size:12px'>{bld}{int(prog_cap_f):,}{ebd}</div>", unsafe_allow_html=True)
                 pct_color = '#27ae60' if pct >= 100 else FUCSIA
-                ce.markdown(f"<div style='text-align:right;font-size:12px;color:{pct_color}'>{bld}{pct}%{ebd}</div>", unsafe_allow_html=True)
-                cf.markdown(f"<div style='text-align:right;font-size:12px;color:{MORADO}'>{bld}{dp_f:,}{ebd}</div>", unsafe_allow_html=True)
+                def _celda(col, txt, color=None):
+                    contenido = '' if solo_label else f"{bld}{txt}{ebd}"
+                    style = "text-align:right;font-size:12px" + (f";color:{color}" if color else "")
+                    col.markdown(f"<div style='{style}'>{contenido}</div>", unsafe_allow_html=True)
+                _celda(cb, f"{hc:,}")
+                _celda(cc, f"{m_i:,}")
+                _celda(cd, f"{p_i:,}")
+                _celda(ce, f"{pct}%", pct_color)
+                _celda(cf, f"{dp_f:,}", MORADO)
 
             all_rows_export = []
-            tot_hc=0; tot_meta=0.0; tot_prog=0.0; tot_dp=0; tot_venc=0
+            tot_hc=0; tot_meta=0.0; tot_prog=0.0; tot_venc=0
 
-            for gv in sorted(df[grp].dropna().unique()):
-                gd     = df[df[grp]==gv]
+            # Bloques: uno por grupo + un bucket "SIN GERENCIA ASIGNADA" para los
+            # colaboradores sin grupo, para que NADIE quede fuera del total.
+            serie_grp = df_re[grp]
+            grupos_ok = sorted([g for g in serie_grp.dropna().unique() if str(g).strip()!=''])
+            bloques   = [(gv, df_re[df_re[grp]==gv]) for gv in grupos_ok]
+            mask_sin  = serie_grp.isna() | (serie_grp.astype(str).str.strip()=='')
+            gd_sin    = df_re[mask_sin]
+            if not gd_sin.empty:
+                bloques.append(('SIN GERENCIA ASIGNADA', gd_sin))
+
+            for gv, gd in bloques:
                 meta_g = col_sum(gd, col_meta)
-                # Usar cap_sum igual que el Dashboard (capea por meta individual)
-                prog_g = cap_sum(gd, 'Prog_visma', col_meta)
-                dp_g   = max(0, int(meta_g) - int(prog_g))
+                # Igual que el Dashboard: activos capeados + cesados al 100% de su meta
+                prog_g = prog_efectivo_grupo(gd)
+                dp_g   = max(0, int(round(meta_g)) - int(round(prog_g)))
                 venc_g = int((gd['Vencidos_real']>0).sum()) if 'Vencidos_real' in gd.columns else 0
 
+                # Cabecera de gerencia (solo rótulo, sin números)
                 render_fila(gv, len(gd), meta_g, prog_g, dp_g, venc_g, 'gerencia')
                 pct_g  = round(min(prog_g, meta_g)/meta_g*100,1) if meta_g>0 else 0
                 all_rows_export.append({'Nivel':'Gerencia','Gerencia':gv,'Categoría':'',
-                    'HC':len(gd),'Meta 2026':int(meta_g),'Días programados':int(prog_g),
+                    'HC':len(gd),'Meta 2026':int(round(meta_g)),'Días programados':int(round(prog_g)),
                     '% Avance':f"{pct_g}%",'Días x prog.':dp_g,'Vencidos':venc_g})
 
                 # Categorías
@@ -1690,28 +1727,30 @@ def main():
                         gc = gd[gd[col_cat].str.upper()==cat]
                         if gc.empty: continue
                         meta_c = col_sum(gc, col_meta)
-                        prog_c = cap_sum(gc, 'Prog_visma', col_meta)
-                        dp_c   = max(0, int(meta_c) - int(prog_c))
+                        prog_c = prog_efectivo_grupo(gc)
+                        dp_c   = max(0, int(round(meta_c)) - int(round(prog_c)))
                         venc_c = int((gc['Vencidos_real']>0).sum()) if 'Vencidos_real' in gc.columns else 0
                         render_fila(cat.title(), len(gc), meta_c, prog_c, dp_c, venc_c, 'categoria')
                         pct_c  = round(min(prog_c,meta_c)/meta_c*100,1) if meta_c>0 else 0
                         all_rows_export.append({'Nivel':'Categoría','Gerencia':gv,'Categoría':cat.title(),
-                            'HC':len(gc),'Meta 2026':int(meta_c),'Días programados':int(prog_c),
+                            'HC':len(gc),'Meta 2026':int(round(meta_c)),'Días programados':int(round(prog_c)),
                             '% Avance':f"{pct_c}%",'Días x prog.':dp_c,'Vencidos':venc_c})
 
-                # Subtotal de gerencia
+                # Subtotal de gerencia (aquí sí van los números agregados)
                 render_fila(gv, len(gd), meta_g, prog_g, dp_g, venc_g, 'subtotal')
                 st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
                 tot_hc   += len(gd); tot_meta += meta_g
-                tot_prog += prog_g;  tot_dp   += dp_g; tot_venc += venc_g
+                tot_prog += prog_g;  tot_venc += venc_g
 
-            # Total general
+            # Total general — cuadra EXACTO con el Dashboard: misma base (df_full),
+            # misma lógica de cesados y una sola redondeada sobre el total.
+            tot_dp = max(0, int(round(tot_meta)) - int(round(min(tot_prog, tot_meta))))
             st.markdown("<hr style='border-color:#ED2579;border-width:2px;margin:8px 0'>", unsafe_allow_html=True)
             render_fila('TOTAL GENERAL', tot_hc, tot_meta, tot_prog, tot_dp, tot_venc, 'total')
             all_rows_export.append({'Nivel':'TOTAL','Gerencia':'TOTAL GENERAL','Categoría':'',
-                'HC':tot_hc,'Meta 2026':int(tot_meta),'Días programados':int(tot_prog),
-                '% Avance':f"{pct_directo(tot_prog,tot_meta)}%",'Días x prog.':tot_dp,'Vencidos':tot_venc})
+                'HC':tot_hc,'Meta 2026':int(round(tot_meta)),'Días programados':int(round(min(tot_prog,tot_meta))),
+                '% Avance':f"{pct_directo(min(tot_prog,tot_meta),tot_meta)}%",'Días x prog.':tot_dp,'Vencidos':tot_venc})
 
             if all_rows_export:
                 exp_df = pd.DataFrame(all_rows_export)
