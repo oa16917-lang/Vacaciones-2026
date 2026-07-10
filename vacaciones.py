@@ -1623,8 +1623,21 @@ def main():
                 """% avance = prog/meta sin capear — consistente con KPIs del dashboard"""
                 return round(prog / meta * 100, 1) if meta > 0 else 0
 
+            # Cabecera única del resumen ejecutivo
+            hdr = st.columns(COLS_RE)
+            hdr[0].markdown("&nbsp;", unsafe_allow_html=True)
+            for hi, hl in enumerate(['HC','Meta 2026','Días prog.','% Avance','Días x prog.'], 1):
+                hdr[hi].markdown(
+                    f"<div style='text-align:right;font-size:11px;font-weight:700;"
+                    f"color:{AZUL};border-bottom:2px solid {FUCSIA};padding-bottom:3px'>{hl}</div>",
+                    unsafe_allow_html=True)
+            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
             def render_fila(label, hc, meta, prog, dp, venc, nivel='gerencia'):
-                pct = pct_directo(prog, meta)
+                # Capear prog a meta (no puede superar 100% de avance)
+                prog_cap_f = min(prog, meta)
+                pct = pct_directo(prog_cap_f, meta)
+                dp_f = max(0, int(meta) - int(prog_cap_f))
                 ca,cb,cc,cd,ce,cf = st.columns(COLS_RE)
                 if nivel == 'gerencia':
                     ca.markdown(f"<div style='background:{AZUL};color:white;padding:6px 10px;"
@@ -1645,12 +1658,12 @@ def main():
                 es_total = nivel in ('subtotal','total')
                 bld = '<b>' if es_total else ''
                 ebd = '</b>' if es_total else ''
-                cb.markdown(f"<div style='text-align:right;font-size:12px'>{bld}HC{ebd}<br>{bld}{hc:,}{ebd}</div>", unsafe_allow_html=True)
-                cc.markdown(f"<div style='text-align:right;font-size:12px'>{bld}Meta 2026{ebd}<br>{bld}{int(meta):,}{ebd}</div>", unsafe_allow_html=True)
-                cd.markdown(f"<div style='text-align:right;font-size:12px'>{bld}Días prog.{ebd}<br>{bld}{int(prog):,}{ebd}</div>", unsafe_allow_html=True)
-                pct_color = FUCSIA if pct < 100 else '#27ae60'
-                ce.markdown(f"<div style='text-align:right;font-size:12px;color:{pct_color}'>{bld}% Avance{ebd}<br>{bld}{pct}%{ebd}</div>", unsafe_allow_html=True)
-                cf.markdown(f"<div style='text-align:right;font-size:12px;color:{MORADO}'>{bld}Días x prog.{ebd}<br>{bld}{dp:,}{ebd}</div>", unsafe_allow_html=True)
+                cb.markdown(f"<div style='text-align:right;font-size:12px'>{bld}{hc:,}{ebd}</div>", unsafe_allow_html=True)
+                cc.markdown(f"<div style='text-align:right;font-size:12px'>{bld}{int(meta):,}{ebd}</div>", unsafe_allow_html=True)
+                cd.markdown(f"<div style='text-align:right;font-size:12px'>{bld}{int(prog_cap_f):,}{ebd}</div>", unsafe_allow_html=True)
+                pct_color = '#27ae60' if pct >= 100 else FUCSIA
+                ce.markdown(f"<div style='text-align:right;font-size:12px;color:{pct_color}'>{bld}{pct}%{ebd}</div>", unsafe_allow_html=True)
+                cf.markdown(f"<div style='text-align:right;font-size:12px;color:{MORADO}'>{bld}{dp_f:,}{ebd}</div>", unsafe_allow_html=True)
 
             all_rows_export = []
             tot_hc=0; tot_meta=0.0; tot_prog=0.0; tot_dp=0; tot_venc=0
