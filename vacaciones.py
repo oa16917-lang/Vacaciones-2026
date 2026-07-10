@@ -1635,22 +1635,24 @@ def main():
                     'Días x prog.':     f"{int(col_sum(gd, col_dp)):,}",
                 }
 
-            # Columnas de la tabla
+            # Columnas de la tabla (grid CSS de una sola pieza por fila → evita el
+            # error 'removeChild' de Streamlit que aparece con muchos st.columns)
             COLS_RE = [3, 1, 1.2, 1.4, 1, 1.4]
+            GRID = ("display:grid;grid-template-columns:3fr 1fr 1.2fr 1.4fr 1fr 1.4fr;"
+                    "gap:8px;align-items:center;")
 
             def pct_directo(prog, meta):
                 """% avance = prog/meta sin capear — consistente con KPIs del dashboard"""
                 return round(prog / meta * 100, 1) if meta > 0 else 0
 
-            # Cabecera única del resumen ejecutivo
-            hdr = st.columns(COLS_RE)
-            hdr[0].markdown("&nbsp;", unsafe_allow_html=True)
-            for hi, hl in enumerate(['HC','Meta 2026','Días prog.','% Avance','Días x prog.'], 1):
-                hdr[hi].markdown(
-                    f"<div style='text-align:right;font-size:11px;font-weight:700;"
-                    f"color:{AZUL};border-bottom:2px solid {FUCSIA};padding-bottom:3px'>{hl}</div>",
-                    unsafe_allow_html=True)
-            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+            # Cabecera única del resumen ejecutivo (un solo st.markdown)
+            _hdr_cells = "".join(
+                f"<div style='text-align:right;font-size:11px;font-weight:700;color:{AZUL};"
+                f"border-bottom:2px solid {FUCSIA};padding-bottom:3px'>{hl}</div>"
+                for hl in ['HC','Meta 2026','Días prog.','% Avance','Días x prog.'])
+            st.markdown(
+                f"<div style='{GRID}margin-bottom:6px'><div></div>{_hdr_cells}</div>",
+                unsafe_allow_html=True)
 
             def render_fila(label, hc, meta, prog, dp, venc, nivel='gerencia'):
                 # Capear prog a meta (no puede superar 100% de avance)
@@ -1660,39 +1662,43 @@ def main():
                 m_i  = int(round(meta))
                 p_i  = int(round(prog_cap_f))
                 dp_f = max(0, m_i - p_i)
-                ca,cb,cc,cd,ce,cf = st.columns(COLS_RE)
-                if nivel == 'gerencia':
-                    ca.markdown(f"<div style='background:{AZUL};color:white;padding:6px 10px;"
-                                f"border-radius:6px;font-weight:700;font-size:13px'>{label}</div>",
-                                unsafe_allow_html=True)
-                elif nivel == 'subtotal':
-                    ca.markdown(f"<div style='background:#D0CCF0;color:{AZUL};padding:5px 10px;"
-                                f"border-radius:4px;font-weight:700;font-size:12px'>📊 Subtotal — {label}</div>",
-                                unsafe_allow_html=True)
-                elif nivel == 'total':
-                    ca.markdown(f"<div style='background:{FUCSIA};color:white;padding:6px 10px;"
-                                f"border-radius:6px;font-weight:700;font-size:13px'>🏁 TOTAL GENERAL</div>",
-                                unsafe_allow_html=True)
-                else:
-                    ca.markdown(f"<div style='background:{AZUL_L};color:{AZUL};padding:4px 10px 4px 24px;"
-                                f"border-radius:4px;font-size:12px'>↳ {label}</div>",
-                                unsafe_allow_html=True)
+
                 # La cabecera de gerencia es SOLO un rótulo: los números agregados
                 # van únicamente en la fila Subtotal, para no duplicarlos.
                 solo_label = (nivel == 'gerencia')
-                es_total = nivel in ('subtotal','total')
-                bld = '<b>' if es_total else ''
-                ebd = '</b>' if es_total else ''
+                es_total   = nivel in ('subtotal','total')
+                bld        = 'font-weight:700;' if es_total else ''
+
+                if nivel == 'gerencia':
+                    label_html = (f"<div style='background:{AZUL};color:white;padding:6px 10px;"
+                                  f"border-radius:6px;font-weight:700;font-size:13px'>{label}</div>")
+                elif nivel == 'subtotal':
+                    label_html = (f"<div style='background:#D0CCF0;color:{AZUL};padding:5px 10px;"
+                                  f"border-radius:4px;font-weight:700;font-size:12px'>📊 Subtotal — {label}</div>")
+                elif nivel == 'total':
+                    label_html = (f"<div style='background:{FUCSIA};color:white;padding:6px 10px;"
+                                  f"border-radius:6px;font-weight:700;font-size:13px'>🏁 TOTAL GENERAL</div>")
+                else:
+                    label_html = (f"<div style='background:{AZUL_L};color:{AZUL};padding:4px 10px 4px 24px;"
+                                  f"border-radius:4px;font-size:12px'>↳ {label}</div>")
+
                 pct_color = '#27ae60' if pct >= 100 else FUCSIA
-                def _celda(col, txt, color=None):
-                    contenido = '' if solo_label else f"{bld}{txt}{ebd}"
-                    style = "text-align:right;font-size:12px" + (f";color:{color}" if color else "")
-                    col.markdown(f"<div style='{style}'>{contenido}</div>", unsafe_allow_html=True)
-                _celda(cb, f"{hc:,}")
-                _celda(cc, f"{m_i:,}")
-                _celda(cd, f"{p_i:,}")
-                _celda(ce, f"{pct}%", pct_color)
-                _celda(cf, f"{dp_f:,}", MORADO)
+                def cel(txt, color=None):
+                    if solo_label:
+                        return "<div></div>"
+                    c = f"color:{color};" if color else ""
+                    return f"<div style='text-align:right;font-size:12px;{c}{bld}'>{txt}</div>"
+
+                fila_html = (
+                    f"<div style='{GRID}margin-bottom:4px'>"
+                    f"{label_html}"
+                    f"{cel(f'{hc:,}')}"
+                    f"{cel(f'{m_i:,}')}"
+                    f"{cel(f'{p_i:,}')}"
+                    f"{cel(f'{pct}%', pct_color)}"
+                    f"{cel(f'{dp_f:,}', MORADO)}"
+                    f"</div>")
+                st.markdown(fila_html, unsafe_allow_html=True)
 
             all_rows_export = []
             tot_hc=0; tot_meta=0.0; tot_prog=0.0; tot_venc=0
